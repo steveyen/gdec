@@ -12,41 +12,7 @@ func TestNewD(t *testing.T) {
 }
 
 func TestKV(t *testing.T) {
-	d := NewD("")
-
-	kvput := d.DeclareChannel("kvput", KVPut{})
-	kvputr := d.DeclareChannel("kvputr", KVPutResponse{})
-	kvget := d.DeclareChannel("kvget", KVGet{})
-	kvgetr := d.DeclareChannel("kvgetr", KVGetResponse{})
-
-	if kvput == nil {
-		t.Errorf("expected non-nil channel")
-	}
-	if kvputr == nil {
-		t.Errorf("expected non-nil channel")
-	}
-	if kvget == nil {
-		t.Errorf("expected non-nil channel")
-	}
-	if kvgetr == nil {
-		t.Errorf("expected non-nil channel")
-	}
-
-	kvstore := d.DeclareLMap("kvstore")
-
-	kvstore.JoinUpdate(kvput,
-		func(k *KVPut) (interface{}, Lattice) { return k.Key, k.Val })
-
-	kvputr.JoinUpdateAsync(kvput,
-		func(k *KVPut) *KVPutResponse {
-			return &KVPutResponse{k.ReqId, k.ClientAddr, d.Addr}
-		})
-
-	kvgetr.JoinUpdateAsync(kvget,
-		func(k *KVGet) *KVGetResponse {
-			return &KVGetResponse{k.ReqId, k.ClientAddr, d.Addr, k.Key,
-				kvstore.At(k.Key)}
-		})
+	d := KVInit(NewD(""), "")
 
 	fmt.Printf("%#v\n", d)
 }
