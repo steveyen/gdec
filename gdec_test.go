@@ -34,15 +34,15 @@ func TestKV(t *testing.T) {
 
 	kvstore := d.DeclareLMap("kvstore")
 
-	kvstore.Merge(kvput, func(k *KVPut) (interface{}, Lattice) {
+	kvstore.JoinMerge(kvput, func(k *KVPut) (interface{}, Lattice) {
 		return k.Key, k.Val
 	})
 
-	kvputr.AsyncMerge(kvput, func(k *KVPut) *KVPutResponse {
+	kvputr.JoinMergeAsync(kvput, func(k *KVPut) *KVPutResponse {
 		return &KVPutResponse{k.ReqId, k.ClientAddr, d.Addr}
 	})
 
-	kvgetr.AsyncMerge(kvget, func(k *KVGet) *KVGetResponse {
+	kvgetr.JoinMergeAsync(kvget, func(k *KVGet) *KVGetResponse {
 		return &KVGetResponse{k.ReqId, k.ClientAddr, d.Addr, k.Key,
 			kvstore.At(k.Key)}
 	})
