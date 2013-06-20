@@ -30,10 +30,6 @@ type KVGetResponse struct {
 }
 
 func KVInit(d *D, prefix string) *D {
-	if prefix != "" {
-		prefix = prefix + "."
-	}
-
 	kvput  := d.DeclareChannel(prefix + "kvput", KVPut{})
 	kvputr := d.DeclareChannel(prefix + "kvputresponse", KVPutResponse{})
 	kvget  := d.DeclareChannel(prefix + "kvget", KVGet{})
