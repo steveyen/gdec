@@ -7,14 +7,14 @@ import (
 type Lattice interface{}
 
 type D struct {
-	Addr string
+	Addr     string
 	Channels map[string]*Channel
 	Lattices map[string]Lattice
 }
 
 func NewD(addr string) *D {
 	return &D{
-		Addr: addr,
+		Addr:     addr,
 		Channels: make(map[string]*Channel),
 		Lattices: make(map[string]Lattice),
 	}
