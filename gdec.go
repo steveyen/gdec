@@ -6,25 +6,55 @@ import (
 
 type Lattice interface{}
 
+type D struct {
+	Addr string
+	Channels map[string]*Channel
+	Lattices map[string]Lattice
+}
+
+func NewD(addr string) *D {
+	return &D{
+		Addr: addr,
+		Channels: make(map[string]*Channel),
+		Lattices: make(map[string]Lattice),
+	}
+}
+
+func (d *D) DeclareChannel(name string, x interface{}) *Channel {
+	c := d.NewChannel(x)
+	d.Channels[name] = c
+	return c
+}
+
 type Channel struct {
+	d *D
 	t reflect.Type
 }
 
-type D struct {
-	channels map[string]*Channel
+func (d *D) NewChannel(x interface{}) *Channel {
+	return &Channel{d: d, t: reflect.TypeOf(x)}
 }
 
-func (d *D) RegisterChannel(name string, x interface{}) *Channel {
-	c := NewChannel(x)
-	d.channels[name] = c
-	return c
-}
-func NewChannel(x interface{}) *Channel {
-	return &Channel{t: reflect.TypeOf(x)}
+func (c *Channel) AsyncMerge(v ...interface{}) {
 }
 
-func NewD() *D {
-	return &D{
-		channels: make(map[string]*Channel),
-	}
+func (d *D) DeclareLMap(name string) *LMap {
+	m := d.NewLMap()
+	d.Lattices[name] = m
+	return m
+}
+
+type LMap struct {
+	d *D
+}
+
+func (d *D) NewLMap() *LMap {
+	return &LMap{d: d}
+}
+
+func (m *LMap) At(key string) Lattice {
+	return nil
+}
+
+func (m *LMap) Merge(v ...interface{}) {
 }
