@@ -35,7 +35,7 @@ func (d *D) NewChannel(x interface{}) *Channel {
 	return &Channel{d: d, t: reflect.TypeOf(x)}
 }
 
-func (c *Channel) JoinMergeAsync(v ...interface{}) {
+func (c *Channel) JoinUpdateAsync(v ...interface{}) {
 }
 
 func (d *D) DeclareLMap(name string) *LMap {
@@ -56,5 +56,5 @@ func (m *LMap) At(key string) Lattice {
 	return nil
 }
 
-func (m *LMap) JoinMerge(v ...interface{}) {
+func (m *LMap) JoinUpdate(v ...interface{}) {
 }
