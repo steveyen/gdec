@@ -30,14 +30,12 @@ type KVGetResponse struct {
 }
 
 func KVInit(d *D, prefix string) *D {
-	kvput  := d.DeclareChannel(prefix + "kvput", KVPut{})
-	kvputr := d.DeclareChannel(prefix + "kvputresponse", KVPutResponse{})
-	kvget  := d.DeclareChannel(prefix + "kvget", KVGet{})
-	kvgetr := d.DeclareChannel(prefix + "kvgetresponse", KVGetResponse{})
-	kvmap := d.DeclareLMap(prefix + "kvmap")
+	kvput := d.DeclareChannel(prefix+"KVPut", KVPut{})
+	kvputr := d.DeclareChannel(prefix+"KVPutResponse", KVPutResponse{})
+	kvget := d.DeclareChannel(prefix+"KVGet", KVGet{})
+	kvgetr := d.DeclareChannel(prefix+"KVGetResponse", KVGetResponse{})
 
-	kvmap.JoinUpdate(kvput,
-		func(k *KVPut) (interface{}, Lattice) { return k.Key, k.Val })
+	kvmap := d.DeclareLMap(prefix + "kvMap")
 
 	kvputr.JoinUpdateAsync(kvput,
 		func(k *KVPut) *KVPutResponse {
@@ -49,6 +47,9 @@ func KVInit(d *D, prefix string) *D {
 			return &KVGetResponse{k.ReqId, k.ClientAddr, d.Addr, k.Key,
 				kvmap.At(k.Key)}
 		})
+
+	kvmap.JoinUpdate(kvput,
+		func(k *KVPut) (interface{}, Lattice) { return k.Key, k.Val })
 
 	return d
 }

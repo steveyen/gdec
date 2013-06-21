@@ -4,12 +4,15 @@ import (
 	"reflect"
 )
 
-type Lattice interface{}
-
 type D struct {
 	Addr     string
 	Channels map[string]*Channel
 	Lattices map[string]Lattice
+}
+
+type Channel struct {
+	d *D
+	t reflect.Type
 }
 
 func NewD(addr string) *D {
@@ -26,11 +29,6 @@ func (d *D) DeclareChannel(name string, x interface{}) *Channel {
 	return c
 }
 
-type Channel struct {
-	d *D
-	t reflect.Type
-}
-
 func (d *D) NewChannel(x interface{}) *Channel {
 	return &Channel{d: d, t: reflect.TypeOf(x)}
 }
@@ -38,23 +36,5 @@ func (d *D) NewChannel(x interface{}) *Channel {
 func (c *Channel) JoinUpdateAsync(v ...interface{}) {
 }
 
-func (d *D) DeclareLMap(name string) *LMap {
-	m := d.NewLMap()
-	d.Lattices[name] = m
-	return m
-}
-
-type LMap struct {
-	d *D
-}
-
-func (d *D) NewLMap() *LMap {
-	return &LMap{d: d}
-}
-
-func (m *LMap) At(key string) Lattice {
-	return nil
-}
-
-func (m *LMap) JoinUpdate(v ...interface{}) {
+func (c *Channel) UpdateAsync(f interface{}) {
 }
