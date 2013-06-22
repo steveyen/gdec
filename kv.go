@@ -29,11 +29,21 @@ type KVGetResponse struct {
 	Val         Lattice
 }
 
+func KVProtocolInit(d *D, prefix string) *D {
+	d.DeclareChannel(prefix+"KVPut", KVPut{})
+	d.DeclareChannel(prefix+"KVPutResponse", KVPutResponse{})
+	d.DeclareChannel(prefix+"KVGet", KVGet{})
+	d.DeclareChannel(prefix+"KVGetResponse", KVGetResponse{})
+	return d
+}
+
 func KVInit(d *D, prefix string) *D {
-	kvput := d.DeclareChannel(prefix+"KVPut", KVPut{})
-	kvputr := d.DeclareChannel(prefix+"KVPutResponse", KVPutResponse{})
-	kvget := d.DeclareChannel(prefix+"KVGet", KVGet{})
-	kvgetr := d.DeclareChannel(prefix+"KVGetResponse", KVGetResponse{})
+	KVProtocolInit(d, prefix)
+
+	kvput := d.Channels[prefix+"KVPut"]
+	kvputr := d.Channels[prefix+"KVPutResponse"]
+	kvget := d.Channels[prefix+"KVGet"]
+	kvgetr := d.Channels[prefix+"KVGetResponse"]
 
 	kvmap := d.DeclareLMap(prefix + "kvMap")
 
