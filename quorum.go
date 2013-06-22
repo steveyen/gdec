@@ -14,25 +14,24 @@ func QuorumInit(d *D, prefix string,
 	qresult := d.DeclareChannel(prefix+"QuorumResult", QuorumResult{})
 
 	qvotes := d.DeclareLSet(prefix+"quorumVotes", QuorumVote{})
-	qtally := d.DeclareLMax(prefix+"quorumTally")
+	qtally := d.DeclareLMax(prefix + "quorumTally")
 	qreached := d.DeclareLBool(prefix + "quorumReached")
 
-	qvotes.JoinUpdate(qvote,
-		func(k *QuorumVote) *QuorumVote { return k })
+	d.Join(qvote).
+		Into(qvotes)
 
-	qtally.Update(
-		func() int { return qvotes.Size() } )
+	d.Join(func() int { return qvotes.Size() }).
+		Into(qtally)
 
-	qreached.Update(
-		func() bool { return qtally.Int() >= quorumSize })
+	d.Join(func() bool { return qtally.Int() >= quorumSize }).
+		Into(qreached)
 
-	qresult.UpdateAsync(
-		func() *QuorumResult {
-			if qreached.Bool() {
-				return &QuorumResult{resultAddr}
-			}
-			return nil
-		})
+	d.Join(func() *QuorumResult {
+		if qreached.Bool() {
+			return &QuorumResult{resultAddr}
+		}
+		return nil
+	}).IntoAsync(qresult)
 
 	return d
 }

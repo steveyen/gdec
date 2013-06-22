@@ -37,19 +37,18 @@ func KVInit(d *D, prefix string) *D {
 
 	kvmap := d.DeclareLMap(prefix + "kvMap")
 
-	kvputr.JoinUpdateAsync(kvput,
-		func(k *KVPut) *KVPutResponse {
-			return &KVPutResponse{k.ReqId, k.ClientAddr, d.Addr}
-		})
+	d.Join(kvput, func(k *KVPut) *KVPutResponse {
+		return &KVPutResponse{k.ReqId, k.ClientAddr, d.Addr}
+	}).IntoAsync(kvputr)
 
-	kvgetr.JoinUpdateAsync(kvget,
-		func(k *KVGet) *KVGetResponse {
-			return &KVGetResponse{k.ReqId, k.ClientAddr, d.Addr, k.Key,
-				kvmap.At(k.Key)}
-		})
+	d.Join(kvget, func(k *KVGet) *KVGetResponse {
+		return &KVGetResponse{k.ReqId, k.ClientAddr, d.Addr, k.Key,
+			kvmap.At(k.Key)}
+	}).IntoAsync(kvgetr)
 
-	kvmap.JoinUpdate(kvput,
-		func(k *KVPut) (interface{}, Lattice) { return k.Key, k.Val })
+	d.Join(kvput, func(k *KVPut) (interface{}, Lattice) {
+		return k.Key, k.Val
+	}).Into(kvmap)
 
 	return d
 }

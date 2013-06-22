@@ -15,6 +15,10 @@ type Channel struct {
 	t reflect.Type
 }
 
+type JoinResult struct {
+	d *D
+}
+
 func NewD(addr string) *D {
 	return &D{
 		Addr:     addr,
@@ -33,8 +37,12 @@ func (d *D) NewChannel(x interface{}) *Channel {
 	return &Channel{d: d, t: reflect.TypeOf(x)}
 }
 
-func (c *Channel) JoinUpdateAsync(v ...interface{}) {
+func (d *D) Join(v ...interface{}) *JoinResult {
+	return nil
 }
 
-func (c *Channel) UpdateAsync(f interface{}) {
+func (r *JoinResult) Into(dest interface{}) {
+}
+
+func (r *JoinResult) IntoAsync(dest interface{}) {
 }

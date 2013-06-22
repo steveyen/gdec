@@ -18,9 +18,9 @@ type LBool struct {
 	d *D
 }
 
-func (d *D) NewLMap() *LMap { return &LMap{d: d} }
-func (d *D) NewLSet() *LSet { return &LSet{d: d} }
-func (d *D) NewLMax() *LMax { return &LMax{d: d} }
+func (d *D) NewLMap() *LMap   { return &LMap{d: d} }
+func (d *D) NewLSet() *LSet   { return &LSet{d: d} }
+func (d *D) NewLMax() *LMax   { return &LMax{d: d} }
 func (d *D) NewLBool() *LBool { return &LBool{d: d} }
 
 func (d *D) DeclareLMap(name string) *LMap {
@@ -51,24 +51,12 @@ func (m *LMap) At(key string) Lattice {
 	return nil
 }
 
-func (m *LMap) JoinUpdate(v ...interface{}) {
-}
-
-func (m *LSet) JoinUpdate(v ...interface{}) {
-}
-
 func (m *LSet) Size() int {
 	return 0
 }
 
-func (m *LMax) Update(v ...interface{}) {
-}
-
 func (m *LMax) Int() int {
 	return 0
-}
-
-func (m *LBool) Update(v ...interface{}) {
 }
 
 func (m *LBool) Bool() bool {
