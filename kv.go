@@ -37,6 +37,9 @@ func KVProtocolInit(d *D, prefix string) *D {
 	return d
 }
 
+// Simple KV replica that merges the values for a key, which works for
+// monotonically increasing LMap's.
+
 func KVInit(d *D, prefix string) *D {
 	KVProtocolInit(d, prefix)
 
@@ -58,6 +61,35 @@ func KVInit(d *D, prefix string) *D {
 
 	d.Join(kvput, func(k *KVPut) (interface{}, Lattice) {
 		return k.Key, k.Val
+	}).Into(kvmap)
+
+	return d
+}
+
+type KVRepl struct {
+	Addr       string
+	TargetAddr string
+}
+
+type KVReplPropagate struct {
+	Addr  string
+	KVMap *LMap
+}
+
+func ReplicatedKVInit(d *D, prefix string) *D {
+	KVInit(d, prefix)
+
+	kvrepl := d.DeclareChannel(prefix+"KVRepl", KVRepl{})
+	kvreplPropagate := d.DeclareChannel(prefix+"KVReplPropagate", KVReplPropagate{})
+
+	kvmap := d.Lattices[prefix+"kvMap"].(*LMap)
+
+	d.Join(kvrepl, func(r *KVRepl) *KVReplPropagate {
+		return &KVReplPropagate{r.TargetAddr, kvmap}
+	}).IntoAsync(kvreplPropagate)
+
+	d.Join(kvreplPropagate, func(r *KVReplPropagate) *LMap {
+		return r.KVMap
 	}).Into(kvmap)
 
 	return d
