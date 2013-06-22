@@ -1,28 +1,28 @@
 package gdec
 
 type KVPut struct {
-	ReqId      int64
-	Addr       string
+	ReqId      int64  `gdec:"key"`
+	Addr       string `gdec:"key,addr"`
 	ClientAddr string
 	Key        string
 	Val        Lattice
 }
 
 type KVPutResponse struct {
-	ReqId       int64
-	Addr        string
+	ReqId       int64  `gdec:"key"`
+	Addr        string `gdec:"addr"`
 	ReplicaAddr string
 }
 
 type KVGet struct {
-	ReqId      int64
-	Addr       string
+	ReqId      int64  `gdec:"key"`
+	Addr       string `gdec:"addr"`
 	ClientAddr string
 	Key        string
 }
 
 type KVGetResponse struct {
-	ReqId       int64
+	ReqId       int64 `gdec:"key"`
 	Addr        string
 	ReplicaAddr string
 	Key         string
@@ -67,12 +67,12 @@ func KVInit(d *D, prefix string) *D {
 }
 
 type KVRepl struct {
-	Addr       string
-	TargetAddr string
+	Addr       string `gdec:"key,addr"`
+	TargetAddr string `gdec:"key"`
 }
 
 type KVReplPropagate struct {
-	Addr  string
+	Addr  string `gdec:"key,addr"`
 	KVMap *LMap
 }
 

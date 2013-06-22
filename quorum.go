@@ -1,11 +1,12 @@
 package gdec
 
 type QuorumVote struct {
-	VoterId string
+	Addr  string `gdec:"key,addr"`
+	Voter string `gdec:"key"`
 }
 
 type QuorumResult struct {
-	Addr string
+	Addr string `gdec:"key,addr"`
 }
 
 func QuorumInit(d *D, prefix string,
