@@ -82,7 +82,7 @@ func ReplicatedKVInit(d *D, prefix string) *D {
 	kvreplReq := d.DeclareChannel(prefix+"KVReplReq", KVReplReq{})
 	kvreplMap := d.DeclareChannel(prefix+"KVReplMap", KVReplMap{})
 
-	kvmap := d.Lattices[prefix+"kvMap"].(*LMap)
+	kvmap := d.Relations[prefix+"kvMap"].(*LMap)
 
 	d.Join(kvreplReq, func(r *KVReplReq) *KVReplMap {
 		return &KVReplMap{r.TargetAddr, kvmap.Snapshot()}

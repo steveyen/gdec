@@ -18,34 +18,23 @@ type LBool struct {
 	d *D
 }
 
-func (d *D) NewLMap() *LMap   { return &LMap{d: d} }
-func (d *D) NewLSet() *LSet   { return &LSet{d: d} }
-func (d *D) NewLMax() *LMax   { return &LMax{d: d} }
-func (d *D) NewLBool() *LBool { return &LBool{d: d} }
-
 func (d *D) DeclareLMap(name string) *LMap {
-	m := d.NewLMap()
-	d.Lattices[name] = m
-	return m
+	return d.DeclareRelation(name, d.NewLMap()).(*LMap)
 }
 
-func (d *D) DeclareLSet(name string, x interface{}) *LSet {
-	m := d.NewLSet()
-	d.Lattices[name] = m
-	return m
+func (d *D) DeclareLSet(name string, t interface{}) *LSet {
+	return d.DeclareRelation(name, d.NewLSet(t)).(*LSet)
 }
 
 func (d *D) DeclareLMax(name string) *LMax {
-	m := d.NewLMax()
-	d.Lattices[name] = m
-	return m
+	return d.DeclareRelation(name, d.NewLMax()).(*LMax)
 }
 
 func (d *D) DeclareLBool(name string) *LBool {
-	m := d.NewLBool()
-	d.Lattices[name] = m
-	return m
+	return d.DeclareRelation(name, d.NewLBool()).(*LBool)
 }
+
+func (d *D) NewLMap() *LMap { return &LMap{d: d} }
 
 func (m *LMap) At(key string) Lattice {
 	return nil
@@ -55,13 +44,19 @@ func (m *LMap) Snapshot() *LMap {
 	return nil
 }
 
+func (d *D) NewLSet(t interface{}) *LSet { return &LSet{d: d} }
+
 func (m *LSet) Size() int {
 	return 0
 }
 
+func (d *D) NewLMax() *LMax { return &LMax{d: d} }
+
 func (m *LMax) Int() int {
 	return 0
 }
+
+func (d *D) NewLBool() *LBool { return &LBool{d: d} }
 
 func (m *LBool) Bool() bool {
 	return false

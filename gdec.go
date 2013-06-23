@@ -5,9 +5,9 @@ import (
 )
 
 type D struct {
-	Addr     string
-	Channels map[string]*Channel
-	Lattices map[string]Lattice
+	Addr      string
+	Channels  map[string]*Channel
+	Relations map[string]Relation
 }
 
 type Channel struct {
@@ -15,15 +15,13 @@ type Channel struct {
 	t reflect.Type
 }
 
-type JoinResult struct {
-	d *D
-}
+type Relation interface{}
 
 func NewD(addr string) *D {
 	return &D{
-		Addr:     addr,
-		Channels: make(map[string]*Channel),
-		Lattices: make(map[string]Lattice),
+		Addr:      addr,
+		Channels:  make(map[string]*Channel),
+		Relations: make(map[string]Relation),
 	}
 }
 
@@ -37,12 +35,21 @@ func (d *D) NewChannel(x interface{}) *Channel {
 	return &Channel{d: d, t: reflect.TypeOf(x)}
 }
 
-func (d *D) Join(v ...interface{}) *JoinResult {
+func (d *D) DeclareRelation(name string, x Relation) Relation {
+	d.Relations[name] = x
+	return x
+}
+
+func (d *D) Join(v ...interface{}) *JoinRelation {
 	return nil
 }
 
-func (r *JoinResult) Into(dest interface{}) {
+type JoinRelation struct {
+	d *D
 }
 
-func (r *JoinResult) IntoAsync(dest interface{}) {
+func (r *JoinRelation) Into(dest interface{}) {
+}
+
+func (r *JoinRelation) IntoAsync(dest interface{}) {
 }
