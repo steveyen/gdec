@@ -1,6 +1,7 @@
 package gdec
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -41,7 +42,16 @@ func (d *D) DeclareRelation(name string, x Relation) Relation {
 	return x
 }
 
-func (d *D) Join(v ...interface{}) *JoinDeclaration {
+func (d *D) Join(vars ...interface{}) *JoinDeclaration {
+	for i, x := range vars {
+		xt := reflect.TypeOf(x)
+		if xt.Kind() == reflect.Func {
+			if i < len(vars) - 1 {
+				panic(fmt.Sprintf("func not last Join() param: %#v",
+					vars))
+			}
+		}
+	}
 	return nil
 }
 
