@@ -53,7 +53,7 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 		xt := reflect.TypeOf(x)
 		switch xt.Kind() {
 		case reflect.Func:
-			if i < len(vars) - 1 {
+			if i < len(vars)-1 {
 				panic(fmt.Sprintf("func not last Join() param: %#v",
 					vars))
 			}
