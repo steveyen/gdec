@@ -45,11 +45,23 @@ func (d *D) DeclareRelation(name string, x Relation) Relation {
 func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 	for i, x := range vars {
 		xt := reflect.TypeOf(x)
-		if xt.Kind() == reflect.Func {
+		switch xt.Kind() {
+		case reflect.Func:
 			if i < len(vars) - 1 {
 				panic(fmt.Sprintf("func not last Join() param: %#v",
 					vars))
 			}
+		case reflect.Ptr:
+			switch xt.Elem().Kind() {
+			case reflect.Interface:
+			case reflect.Struct:
+			default:
+				panic(fmt.Sprintf("unexpected Join() param type: %#v",
+					x))
+			}
+		default:
+			panic(fmt.Sprintf("unexpected Join() param type: %#v",
+				x))
 		}
 	}
 	return nil
