@@ -49,6 +49,9 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 	pct := reflect.TypeOf(pc)
 	rt := reflect.TypeOf(r)
 
+	var joinNum int
+	var mapFunc interface{}
+
 	for i, x := range vars {
 		if x == nil {
 			panic("nil passed as Join() param")
@@ -59,16 +62,26 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 				panic(fmt.Sprintf("func not last Join() param: %#v",
 					vars))
 			}
-		} else if !xt.AssignableTo(pct) && !xt.Implements(rt) {
-			panic(fmt.Sprintf("unexpected Join() param type: %#v",
-				x))
+			mapFunc = x
+		} else {
+			if !xt.AssignableTo(pct) && !xt.Implements(rt) {
+				panic(fmt.Sprintf("unexpected Join() param type: %#v",
+					x))
+			}
+			joinNum = i + 1
 		}
 	}
-	return nil
+	return &JoinDeclaration{
+		d:       d,
+		joinNum: joinNum,
+		mapFunc: mapFunc,
+	}
 }
 
 type JoinDeclaration struct {
 	d *D
+	joinNum int
+	mapFunc interface{}
 }
 
 func (r *JoinDeclaration) Into(dest interface{}) {
