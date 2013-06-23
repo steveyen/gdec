@@ -36,3 +36,7 @@ func QuorumInit(d *D, prefix string,
 
 	return d
 }
+
+func init() {
+	QuorumInit(NewD(""), "", 0, "")
+}

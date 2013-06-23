@@ -66,6 +66,10 @@ func KVInit(d *D, prefix string) *D {
 	return d
 }
 
+func init() {
+	KVInit(NewD(""), "")
+}
+
 type KVReplReq struct {
 	Addr       string `gdec:"key,addr"`
 	TargetAddr string `gdec:"key"`
@@ -93,4 +97,8 @@ func ReplicatedKVInit(d *D, prefix string) *D {
 	}).Into(kvmap)
 
 	return d
+}
+
+func init() {
+	ReplicatedKVInit(NewD(""), "")
 }
