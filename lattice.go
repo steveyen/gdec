@@ -36,6 +36,12 @@ func (d *D) DeclareLBool(name string) *LBool {
 
 func (d *D) NewLMap() *LMap { return &LMap{d: d} }
 
+func (d *D) NewLSet(t interface{}) *LSet { return &LSet{d: d} }
+
+func (d *D) NewLMax() *LMax { return &LMax{d: d} }
+
+func (d *D) NewLBool() *LBool { return &LBool{d: d} }
+
 func (m *LMap) At(key string) Lattice {
 	return nil
 }
@@ -44,19 +50,13 @@ func (m *LMap) Snapshot() *LMap {
 	return nil
 }
 
-func (d *D) NewLSet(t interface{}) *LSet { return &LSet{d: d} }
-
 func (m *LSet) Size() int {
 	return 0
 }
 
-func (d *D) NewLMax() *LMax { return &LMax{d: d} }
-
 func (m *LMax) Int() int {
 	return 0
 }
-
-func (d *D) NewLBool() *LBool { return &LBool{d: d} }
 
 func (m *LBool) Bool() bool {
 	return false
