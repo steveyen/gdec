@@ -43,6 +43,12 @@ func (d *D) DeclareRelation(name string, x Relation) Relation {
 }
 
 func (d *D) Join(vars ...interface{}) *JoinDeclaration {
+	var pc *Channel
+	var r Relation
+
+	pct := reflect.TypeOf(pc)
+	rt := reflect.TypeOf(r)
+
 	for i, x := range vars {
 		xt := reflect.TypeOf(x)
 		switch xt.Kind() {
@@ -52,10 +58,8 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 					vars))
 			}
 		case reflect.Ptr:
-			switch xt.Elem().Kind() {
-			case reflect.Interface:
-			case reflect.Struct:
-			default:
+			if !xt.AssignableTo(pct) &&
+				!xt.AssignableTo(rt) {
 				panic(fmt.Sprintf("unexpected Join() param type: %#v",
 					x))
 			}
