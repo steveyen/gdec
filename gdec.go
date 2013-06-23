@@ -50,19 +50,16 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 	rt := reflect.TypeOf(r)
 
 	for i, x := range vars {
+		if x == nil {
+			panic("nil passed as Join() param")
+		}
 		xt := reflect.TypeOf(x)
-		switch xt.Kind() {
-		case reflect.Func:
+		if xt.Kind() == reflect.Func {
 			if i < len(vars)-1 {
 				panic(fmt.Sprintf("func not last Join() param: %#v",
 					vars))
 			}
-		case reflect.Ptr:
-			if !xt.AssignableTo(pct) && !xt.Implements(rt) {
-				panic(fmt.Sprintf("unexpected Join() param type: %#v",
-					x))
-			}
-		default:
+		} else if !xt.AssignableTo(pct) && !xt.Implements(rt) {
 			panic(fmt.Sprintf("unexpected Join() param type: %#v",
 				x))
 		}
