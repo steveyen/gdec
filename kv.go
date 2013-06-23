@@ -66,12 +66,12 @@ func KVInit(d *D, prefix string) *D {
 	return d
 }
 
-type KVRepl struct {
+type KVReplReq struct {
 	Addr       string `gdec:"key,addr"`
 	TargetAddr string `gdec:"key"`
 }
 
-type KVReplPropagate struct {
+type KVReplMap struct {
 	Addr  string `gdec:"key,addr"`
 	KVMap *LMap
 }
@@ -79,16 +79,16 @@ type KVReplPropagate struct {
 func ReplicatedKVInit(d *D, prefix string) *D {
 	KVInit(d, prefix)
 
-	kvrepl := d.DeclareChannel(prefix+"KVRepl", KVRepl{})
-	kvreplPropagate := d.DeclareChannel(prefix+"KVReplPropagate", KVReplPropagate{})
+	kvreplReq := d.DeclareChannel(prefix+"KVReplReq", KVReplReq{})
+	kvreplMap := d.DeclareChannel(prefix+"KVReplMap", KVReplMap{})
 
 	kvmap := d.Lattices[prefix+"kvMap"].(*LMap)
 
-	d.Join(kvrepl, func(r *KVRepl) *KVReplPropagate {
-		return &KVReplPropagate{r.TargetAddr, kvmap}
-	}).IntoAsync(kvreplPropagate)
+	d.Join(kvreplReq, func(r *KVReplReq) *KVReplMap {
+		return &KVReplMap{r.TargetAddr, kvmap.Snapshot()}
+	}).IntoAsync(kvreplMap)
 
-	d.Join(kvreplPropagate, func(r *KVReplPropagate) *LMap {
+	d.Join(kvreplMap, func(r *KVReplMap) *LMap {
 		return r.KVMap
 	}).Into(kvmap)
 

@@ -51,6 +51,10 @@ func (m *LMap) At(key string) Lattice {
 	return nil
 }
 
+func (m *LMap) Snapshot() *LMap {
+	return nil
+}
+
 func (m *LSet) Size() int {
 	return 0
 }
