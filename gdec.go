@@ -58,8 +58,7 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 					vars))
 			}
 		case reflect.Ptr:
-			if !xt.AssignableTo(pct) &&
-				!xt.AssignableTo(rt) {
+			if !xt.AssignableTo(pct) && !xt.Implements(rt) {
 				panic(fmt.Sprintf("unexpected Join() param type: %#v",
 					x))
 			}
