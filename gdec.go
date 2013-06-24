@@ -94,6 +94,7 @@ type JoinDeclaration struct {
 	mapFunc interface{}
 	mapFlat bool
 	async   bool
+	into    Relation
 }
 
 func (jd *JoinDeclaration) IntoAsync(dest interface{}) {
@@ -110,4 +111,6 @@ func (jd *JoinDeclaration) Into(dest interface{}) {
 		panic(fmt.Sprintf("Into() param: %#v, type: %v, does not implement Relation",
 			dest, dt))
 	}
+
+	jd.into = dest.(Relation)
 }
