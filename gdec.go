@@ -11,11 +11,6 @@ type D struct {
 	ticks     int64
 }
 
-type Channel struct {
-	d *D
-	t reflect.Type
-}
-
 type Relation interface{
 	TupleType() reflect.Type
 }
@@ -95,17 +90,4 @@ func (r *JoinDeclaration) Into(dest interface{}) {
 }
 
 func (r *JoinDeclaration) IntoAsync(dest interface{}) {
-}
-
-func (d *D) DeclareChannel(name string, x interface{}) *Channel {
-	return d.DeclareRelation(name, d.NewChannel(x)).(*Channel)
-
-}
-
-func (d *D) NewChannel(x interface{}) *Channel {
-	return &Channel{d: d, t: reflect.TypeOf(x)}
-}
-
-func (c *Channel) TupleType() reflect.Type {
-	return c.t
 }
