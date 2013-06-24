@@ -79,8 +79,8 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 
 	if mapFunc != nil {
 		mft := reflect.TypeOf(mapFunc)
-		if mft.NumOut() < 1 {
-			panic(fmt.Sprintf("mapFunc should return >= 1 value, mapFunc: %v",
+		if mft.NumOut() != 1 {
+			panic(fmt.Sprintf("mapFunc should return 1 value, mapFunc: %v",
 				mft))
 		}
 		if mft.NumIn() != joinNum {

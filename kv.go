@@ -59,8 +59,8 @@ func KVInit(d *D, prefix string) *D {
 			kvmap.At(k.Key)}
 	}).IntoAsync(kvgetr)
 
-	d.Join(kvput, func(k *KVPut) (string, Lattice) {
-		return k.Key, k.Val
+	d.Join(kvput, func(k *KVPut) *LMapEntry {
+		return &LMapEntry{k.Key, k.Val}
 	}).Into(kvmap)
 
 	return d

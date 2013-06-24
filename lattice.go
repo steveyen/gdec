@@ -10,6 +10,11 @@ type LMap struct {
 	d *D
 }
 
+type LMapEntry struct {
+	Key string
+	Val Lattice
+}
+
 type LSet struct {
 	d *D
 	t reflect.Type
@@ -48,7 +53,7 @@ func (d *D) NewLMax() *LMax { return &LMax{d: d} }
 func (d *D) NewLBool() *LBool { return &LBool{d: d} }
 
 func (m *LMap) TupleType() reflect.Type {
-	var x *Lattice
+	var x *LMapEntry
 	return reflect.TypeOf(x).Elem()
 }
 
