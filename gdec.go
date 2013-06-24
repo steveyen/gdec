@@ -32,7 +32,6 @@ func (d *D) DeclareRelation(name string, x Relation) Relation {
 
 func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 	var r *Relation
-
 	rt := reflect.TypeOf(r).Elem()
 
 	var joinNum int
@@ -103,4 +102,11 @@ func (jd *JoinDeclaration) IntoAsync(dest interface{}) {
 }
 
 func (jd *JoinDeclaration) Into(dest interface{}) {
+	var r *Relation
+	rt := reflect.TypeOf(r).Elem()
+
+	dt := reflect.TypeOf(dest)
+	if !dt.Implements(rt) {
+		panic(fmt.Sprintf("Into() type: %v does not implement Relation", dt))
+	}
 }
