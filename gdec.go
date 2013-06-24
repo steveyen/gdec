@@ -56,6 +56,11 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 		}
 	}
 
+	sources := make([]Relation, joinNum)
+	for i := 0; i < joinNum; i++ {
+		sources[i] = vars[i].(Relation)
+	}
+
 	if mapFunc != nil {
 		mft := reflect.TypeOf(mapFunc)
 		if mft.NumOut() != 1 {
@@ -66,8 +71,8 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 			panic(fmt.Sprintf("mapFunc should take %v args, mapFunc: %v",
 				joinNum, mft))
 		}
-		for i, x := range vars[0:joinNum] {
-			rt := reflect.PtrTo(x.(Relation).TupleType())
+		for i, x := range sources {
+			rt := reflect.PtrTo(x.TupleType())
 			if rt != mft.In(i) {
 				panic(fmt.Sprintf("mapFunc param #%v type %v does not match, "+
 					"expected: %v, mapFunc: %v", i, mft.In(i), rt, mft))
@@ -77,7 +82,7 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 
 	return &JoinDeclaration{
 		d:       d,
-		sources: vars[0:joinNum],
+		sources: sources,
 		mapFunc: mapFunc,
 	}
 }
@@ -90,7 +95,7 @@ func (d *D) JoinFlat(vars ...interface{}) *JoinDeclaration {
 
 type JoinDeclaration struct {
 	d       *D
-	sources []interface{}
+	sources []Relation
 	mapFunc interface{}
 	mapFlat bool
 	async   bool
