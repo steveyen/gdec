@@ -70,7 +70,7 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 		for i, x := range vars[0:joinNum] {
 			rt := reflect.PtrTo(x.(Relation).TupleType())
 			if rt != mft.In(i) {
-				panic(fmt.Sprintf("mapFunc param #%v type %v does not match, " +
+				panic(fmt.Sprintf("mapFunc param #%v type %v does not match, "+
 					"expected: %v, mapFunc: %v", i, mft.In(i), rt, mft))
 			}
 		}
