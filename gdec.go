@@ -77,14 +77,14 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 	}
 	return &JoinDeclaration{
 		d:       d,
-		joinNum: joinNum,
+		sources: vars[0:joinNum],
 		mapFunc: mapFunc,
 	}
 }
 
 type JoinDeclaration struct {
-	d *D
-	joinNum int
+	d       *D
+	sources []interface{}
 	mapFunc interface{}
 }
 

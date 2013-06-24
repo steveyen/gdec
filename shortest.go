@@ -39,4 +39,3 @@ func ShortestPathInit(d *D, prefix string) *D {
 func init() {
 	ShortestPathInit(NewD(""), "")
 }
-
