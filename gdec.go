@@ -83,10 +83,17 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 	}
 }
 
+func (d *D) JoinFlat(vars ...interface{}) *JoinDeclaration {
+	jd := d.Join(vars...)
+	jd.mapFlat = true
+	return jd
+}
+
 type JoinDeclaration struct {
 	d       *D
 	sources []interface{}
 	mapFunc interface{}
+	mapFlat bool
 }
 
 func (r *JoinDeclaration) Into(dest interface{}) {

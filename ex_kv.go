@@ -88,7 +88,7 @@ func ReplicatedKVInit(d *D, prefix string) *D {
 		return &KVReplMap{r.TargetAddr, kvmap.Snapshot()}
 	}).IntoAsync(kvreplMap)
 
-	d.Join(kvreplMap, func(r *KVReplMap) *LMap {
+	d.JoinFlat(kvreplMap, func(r *KVReplMap) *LMap {
 		return r.KVMap
 	}).Into(kvmap)
 
