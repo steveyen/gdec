@@ -8,6 +8,7 @@ import (
 type D struct {
 	Addr      string
 	Relations map[string]Relation
+	Joins     []*JoinDeclaration
 	ticks     int64
 }
 
@@ -19,6 +20,7 @@ func NewD(addr string) *D {
 	return &D{
 		Addr:      addr,
 		Relations: make(map[string]Relation),
+		Joins:     []*JoinDeclaration{},
 	}
 }
 
@@ -117,7 +119,7 @@ func (jd *JoinDeclaration) Into(dest interface{}) {
 			dest, dt))
 	}
 
-	into := dest.(Relation)
+	jd.into = dest.(Relation)
 
 	var out reflect.Type
 	if jd.mapFunc != nil {
@@ -133,12 +135,12 @@ func (jd *JoinDeclaration) Into(dest interface{}) {
 				" output type: %v", dest, dt, out))
 		}
 	} else {
-		if out != into.TupleType() &&
-			out != reflect.PtrTo(into.TupleType()) {
+		if out != jd.into.TupleType() &&
+			out != reflect.PtrTo(jd.into.TupleType()) {
 			panic(fmt.Sprintf("Into() param: %#v, type: %v, does not match"+
 				" tuple type: %v", dest, dt, out))
 		}
 	}
 
-	jd.into = into
+	jd.d.Joins = append(jd.d.Joins, jd)
 }
