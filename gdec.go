@@ -12,6 +12,10 @@ type D struct {
 	ticks     int64
 }
 
+type Joinable interface {
+	TupleType() reflect.Type
+}
+
 type Channel struct {
 	d *D
 	t reflect.Type
@@ -19,6 +23,10 @@ type Channel struct {
 
 func (d *D) NewChannel(x interface{}) *Channel {
 	return &Channel{d: d, t: reflect.TypeOf(x)}
+}
+
+func (c *Channel) TupleType() reflect.Type {
+	return c.t
 }
 
 type Relation interface{}
@@ -43,11 +51,9 @@ func (d *D) DeclareRelation(name string, x Relation) Relation {
 }
 
 func (d *D) Join(vars ...interface{}) *JoinDeclaration {
-	var c *Channel
-	var r *Relation
+	var j *Joinable
 
-	ct := reflect.TypeOf(c).Elem()
-	rt := reflect.TypeOf(r).Elem()
+	jt := reflect.TypeOf(j).Elem()
 
 	var joinNum int
 	var mapFunc interface{}
@@ -63,12 +69,7 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 					vars))
 			}
 			mapFunc = x
-		} else if xt.Kind() == reflect.Ptr {
-			xt = xt.Elem()
-			if !xt.AssignableTo(ct) && !xt.Implements(rt) {
-				panic(fmt.Sprintf("unexpected Join() param pointer type: %#v",
-					x))
-			}
+		} else if xt.Implements(jt) {
 			joinNum = i + 1
 		} else {
 			panic(fmt.Sprintf("unexpected Join() param type: %#v, %v",
@@ -85,6 +86,14 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 		if mft.NumIn() != joinNum {
 			panic(fmt.Sprintf("mapFunc should take %v args, mapFunc: %v",
 				joinNum, mft))
+		}
+		for i, x := range vars[0:joinNum] {
+			j := x.(Joinable)
+			jt := reflect.PtrTo(j.TupleType())
+			if jt != mft.In(i) {
+				panic(fmt.Sprintf("mapFunc param #%v type %v does not match, " +
+					"expected: %v, mapFunc: %v", i, mft.In(i), jt, mft))
+			}
 		}
 	}
 

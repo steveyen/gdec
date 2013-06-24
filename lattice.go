@@ -47,6 +47,25 @@ func (d *D) NewLMax() *LMax { return &LMax{d: d} }
 
 func (d *D) NewLBool() *LBool { return &LBool{d: d} }
 
+func (m *LMap) TupleType() reflect.Type {
+	var x *Lattice
+	return reflect.TypeOf(x).Elem()
+}
+
+func (m *LSet) TupleType() reflect.Type {
+	return m.t
+}
+
+func (m *LMax) TupleType() reflect.Type {
+	var x int
+	return reflect.TypeOf(x)
+}
+
+func (m *LBool) TupleType() reflect.Type {
+	var x bool
+	return reflect.TypeOf(x)
+}
+
 func (m *LMap) At(key string) Lattice {
 	return nil
 }
