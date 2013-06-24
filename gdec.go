@@ -94,10 +94,13 @@ type JoinDeclaration struct {
 	sources []interface{}
 	mapFunc interface{}
 	mapFlat bool
+	async   bool
 }
 
-func (r *JoinDeclaration) Into(dest interface{}) {
+func (jd *JoinDeclaration) IntoAsync(dest interface{}) {
+	jd.async = true
+	jd.Into(dest)
 }
 
-func (r *JoinDeclaration) IntoAsync(dest interface{}) {
+func (jd *JoinDeclaration) Into(dest interface{}) {
 }
