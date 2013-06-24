@@ -26,7 +26,8 @@ func NewD(addr string) *D {
 
 func (d *D) DeclareRelation(name string, x Relation) Relation {
 	if d.Relations[name] != nil {
-		panic(fmt.Sprintf("relation redeclared, name: %s, relation: %#v", name, x))
+		panic(fmt.Sprintf("relation redeclared, name: %s"+
+			", relation: %#v", name, x))
 	}
 	d.Relations[name] = x
 	return x
@@ -37,7 +38,7 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 	rt := reflect.TypeOf(r).Elem()
 
 	var joinNum int
-	var mapFunc interface{}
+	var selectWhereFunc interface{}
 
 	for i, x := range vars {
 		if x == nil {
@@ -49,7 +50,7 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 				panic(fmt.Sprintf("func not last Join() param: %#v",
 					vars))
 			}
-			mapFunc = x
+			selectWhereFunc = x
 		} else if xt.Implements(rt) {
 			joinNum = i + 1
 		} else {
@@ -63,45 +64,46 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 		sources[i] = vars[i].(Relation)
 	}
 
-	if mapFunc != nil {
-		mft := reflect.TypeOf(mapFunc)
+	if selectWhereFunc != nil {
+		mft := reflect.TypeOf(selectWhereFunc)
 		if mft.NumOut() != 1 {
-			panic(fmt.Sprintf("mapFunc should return 1 value, mapFunc: %v",
-				mft))
+			panic(fmt.Sprintf("selectWhereFunc should return 1 value"+
+				", selectWhereFunc: %v", mft))
 		}
 		if mft.NumIn() != joinNum {
-			panic(fmt.Sprintf("mapFunc should take %v args, mapFunc: %v",
-				joinNum, mft))
+			panic(fmt.Sprintf("selectWhereFunc should take %v args"+
+				", selectWhereFunc: %v", joinNum, mft))
 		}
 		for i, x := range sources {
 			rt := reflect.PtrTo(x.TupleType())
 			if rt != mft.In(i) {
-				panic(fmt.Sprintf("mapFunc param #%v type %v does not match, "+
-					"expected: %v, mapFunc: %v", i, mft.In(i), rt, mft))
+				panic(fmt.Sprintf("selectWhereFunc param #%v type"+
+					"%v does not match, expected: %v, selectWhereFunc: %v",
+					i, mft.In(i), rt, mft))
 			}
 		}
 	}
 
 	return &JoinDeclaration{
-		d:       d,
-		sources: sources,
-		mapFunc: mapFunc,
+		d:               d,
+		sources:         sources,
+		selectWhereFunc: selectWhereFunc,
 	}
 }
 
 func (d *D) JoinFlat(vars ...interface{}) *JoinDeclaration {
 	jd := d.Join(vars...)
-	jd.mapFlat = true
+	jd.selectWhereFlat = true
 	return jd
 }
 
 type JoinDeclaration struct {
-	d       *D
-	sources []Relation
-	mapFunc interface{}
-	mapFlat bool
-	async   bool
-	into    Relation
+	d               *D
+	sources         []Relation
+	selectWhereFunc interface{}
+	selectWhereFlat bool
+	async           bool
+	into            Relation
 }
 
 func (jd *JoinDeclaration) IntoAsync(dest interface{}) {
@@ -122,14 +124,14 @@ func (jd *JoinDeclaration) Into(dest interface{}) {
 	jd.into = dest.(Relation)
 
 	var out reflect.Type
-	if jd.mapFunc != nil {
-		out = reflect.TypeOf(jd.mapFunc).Out(0)
+	if jd.selectWhereFunc != nil {
+		out = reflect.TypeOf(jd.selectWhereFunc).Out(0)
 	} else if len(jd.sources) == 1 {
 		out = reflect.PtrTo(jd.sources[0].TupleType())
 	} else {
 		panic(fmt.Sprintf("unexpected Into() join declaration: %#v", jd))
 	}
-	if jd.mapFlat {
+	if jd.selectWhereFlat {
 		if out != dt {
 			panic(fmt.Sprintf("Into() param: %#v, type: %v, does not match"+
 				" output type: %v", dest, dt, out))
