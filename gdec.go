@@ -43,11 +43,11 @@ func (d *D) DeclareRelation(name string, x Relation) Relation {
 }
 
 func (d *D) Join(vars ...interface{}) *JoinDeclaration {
-	var pc *Channel
-	var r Relation
+	var c *Channel
+	var r *Relation
 
-	pct := reflect.TypeOf(pc)
-	rt := reflect.TypeOf(r)
+	ct := reflect.TypeOf(c).Elem()
+	rt := reflect.TypeOf(r).Elem()
 
 	var joinNum int
 	var mapFunc interface{}
@@ -63,12 +63,16 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 					vars))
 			}
 			mapFunc = x
-		} else {
-			if !xt.AssignableTo(pct) && !xt.Implements(rt) {
-				panic(fmt.Sprintf("unexpected Join() param type: %#v",
+		} else if xt.Kind() == reflect.Ptr {
+			xt = xt.Elem()
+			if !xt.AssignableTo(ct) && !xt.Implements(rt) {
+				panic(fmt.Sprintf("unexpected Join() param pointer type: %#v",
 					x))
 			}
 			joinNum = i + 1
+		} else {
+			panic(fmt.Sprintf("unexpected Join() param type: %#v, %v",
+				x, xt))
 		}
 	}
 	return &JoinDeclaration{
