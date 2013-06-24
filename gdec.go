@@ -75,6 +75,19 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 				x, xt))
 		}
 	}
+
+	if mapFunc != nil {
+		mft := reflect.TypeOf(mapFunc)
+		if mft.NumOut() < 1 {
+			panic(fmt.Sprintf("mapFunc should return >= 1 value, mapFunc: %v",
+				mft))
+		}
+		if mft.NumIn() != joinNum {
+			panic(fmt.Sprintf("mapFunc should take %v args, mapFunc: %v",
+				joinNum, mft))
+		}
+	}
+
 	return &JoinDeclaration{
 		d:       d,
 		sources: vars[0:joinNum],
