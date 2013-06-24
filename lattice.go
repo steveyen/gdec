@@ -62,8 +62,7 @@ func (m *LSet) TupleType() reflect.Type {
 }
 
 func (m *LMax) TupleType() reflect.Type {
-	var x int
-	return reflect.TypeOf(x)
+	return reflect.TypeOf(0)
 }
 
 func (m *LBool) TupleType() reflect.Type {

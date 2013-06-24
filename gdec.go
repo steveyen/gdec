@@ -117,5 +117,28 @@ func (jd *JoinDeclaration) Into(dest interface{}) {
 			dest, dt))
 	}
 
-	jd.into = dest.(Relation)
+	into := dest.(Relation)
+
+	var out reflect.Type
+	if jd.mapFunc != nil {
+		out = reflect.TypeOf(jd.mapFunc).Out(0)
+	} else if len(jd.sources) == 1 {
+		out = reflect.PtrTo(jd.sources[0].TupleType())
+	} else {
+		panic(fmt.Sprintf("unexpected Into() join declaration: %#v", jd))
+	}
+	if jd.mapFlat {
+		if out != dt {
+			panic(fmt.Sprintf("Into() param: %#v, type: %v, does not match"+
+				" output type: %v", dest, dt, out))
+		}
+	} else {
+		if out != into.TupleType() &&
+			out != reflect.PtrTo(into.TupleType()) {
+			panic(fmt.Sprintf("Into() param: %#v, type: %v, does not match"+
+				" tuple type: %v", dest, dt, out))
+		}
+	}
+
+	jd.into = into
 }
