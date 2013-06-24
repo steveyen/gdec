@@ -7,7 +7,6 @@ import (
 
 type D struct {
 	Addr      string
-	Channels  map[string]*Channel
 	Relations map[string]Relation
 	ticks     int64
 }
@@ -21,28 +20,13 @@ type Channel struct {
 	t reflect.Type
 }
 
-func (d *D) NewChannel(x interface{}) *Channel {
-	return &Channel{d: d, t: reflect.TypeOf(x)}
-}
-
-func (c *Channel) TupleType() reflect.Type {
-	return c.t
-}
-
 type Relation interface{}
 
 func NewD(addr string) *D {
 	return &D{
 		Addr:      addr,
-		Channels:  make(map[string]*Channel),
 		Relations: make(map[string]Relation),
 	}
-}
-
-func (d *D) DeclareChannel(name string, x interface{}) *Channel {
-	c := d.NewChannel(x)
-	d.Channels[name] = c
-	return c
 }
 
 func (d *D) DeclareRelation(name string, x Relation) Relation {
@@ -114,4 +98,17 @@ func (r *JoinDeclaration) Into(dest interface{}) {
 }
 
 func (r *JoinDeclaration) IntoAsync(dest interface{}) {
+}
+
+func (d *D) DeclareChannel(name string, x interface{}) *Channel {
+	return d.DeclareRelation(name, d.NewChannel(x)).(*Channel)
+
+}
+
+func (d *D) NewChannel(x interface{}) *Channel {
+	return &Channel{d: d, t: reflect.TypeOf(x)}
+}
+
+func (c *Channel) TupleType() reflect.Type {
+	return c.t
 }

@@ -43,10 +43,10 @@ func KVProtocolInit(d *D, prefix string) *D {
 func KVInit(d *D, prefix string) *D {
 	KVProtocolInit(d, prefix)
 
-	kvput := d.Channels[prefix+"KVPut"]
-	kvputr := d.Channels[prefix+"KVPutResponse"]
-	kvget := d.Channels[prefix+"KVGet"]
-	kvgetr := d.Channels[prefix+"KVGetResponse"]
+	kvput := d.Relations[prefix+"KVPut"]
+	kvputr := d.Relations[prefix+"KVPutResponse"]
+	kvget := d.Relations[prefix+"KVGet"]
+	kvgetr := d.Relations[prefix+"KVGetResponse"]
 
 	kvmap := d.DeclareLMap(prefix + "kvMap")
 
