@@ -11,7 +11,6 @@ type Channel struct {
 
 func (d *D) DeclareChannel(name string, x interface{}) *Channel {
 	return d.DeclareRelation(name, d.NewChannel(x)).(*Channel)
-
 }
 
 func (d *D) NewChannel(x interface{}) *Channel {

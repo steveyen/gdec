@@ -11,7 +11,7 @@ type D struct {
 	ticks     int64
 }
 
-type Relation interface{
+type Relation interface {
 	TupleType() reflect.Type
 }
 
@@ -23,6 +23,9 @@ func NewD(addr string) *D {
 }
 
 func (d *D) DeclareRelation(name string, x Relation) Relation {
+	if d.Relations[name] != nil {
+		panic(fmt.Sprintf("relation redeclared, name: %s, relation: %#v", name, x))
+	}
 	d.Relations[name] = x
 	return x
 }
