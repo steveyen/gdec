@@ -1,5 +1,9 @@
 package gdec
 
+import (
+	"reflect"
+)
+
 type Lattice interface{}
 
 type LMap struct {
@@ -8,6 +12,7 @@ type LMap struct {
 
 type LSet struct {
 	d *D
+	t reflect.Type
 }
 
 type LMax struct {
@@ -22,8 +27,8 @@ func (d *D) DeclareLMap(name string) *LMap {
 	return d.DeclareRelation(name, d.NewLMap()).(*LMap)
 }
 
-func (d *D) DeclareLSet(name string, t interface{}) *LSet {
-	return d.DeclareRelation(name, d.NewLSet(t)).(*LSet)
+func (d *D) DeclareLSet(name string, x interface{}) *LSet {
+	return d.DeclareRelation(name, d.NewLSet(x)).(*LSet)
 }
 
 func (d *D) DeclareLMax(name string) *LMax {
@@ -36,7 +41,7 @@ func (d *D) DeclareLBool(name string) *LBool {
 
 func (d *D) NewLMap() *LMap { return &LMap{d: d} }
 
-func (d *D) NewLSet(t interface{}) *LSet { return &LSet{d: d} }
+func (d *D) NewLSet(x interface{}) *LSet { return &LSet{d: d, t: reflect.TypeOf(x)} }
 
 func (d *D) NewLMax() *LMax { return &LMax{d: d} }
 
