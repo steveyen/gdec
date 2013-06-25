@@ -8,7 +8,7 @@ import (
 type D struct {
 	Addr      string
 	Relations map[string]Relation
-	Joins     []*JoinDeclaration
+	Joins     []*joinDeclaration
 	ticks     int64
 	next      []relationChange
 }
@@ -24,7 +24,7 @@ func NewD(addr string) *D {
 	return &D{
 		Addr:      addr,
 		Relations: make(map[string]Relation),
-		Joins:     []*JoinDeclaration{},
+		Joins:     []*joinDeclaration{},
 		next:      []relationChange{},
 	}
 }
@@ -38,7 +38,7 @@ func (d *D) DeclareRelation(name string, x Relation) Relation {
 	return x
 }
 
-func (d *D) Join(vars ...interface{}) *JoinDeclaration {
+func (d *D) Join(vars ...interface{}) *joinDeclaration {
 	var r *Relation
 	rt := reflect.TypeOf(r).Elem()
 
@@ -89,20 +89,20 @@ func (d *D) Join(vars ...interface{}) *JoinDeclaration {
 		}
 	}
 
-	return &JoinDeclaration{
+	return &joinDeclaration{
 		d:               d,
 		sources:         sources,
 		selectWhereFunc: selectWhereFunc,
 	}
 }
 
-func (d *D) JoinFlat(vars ...interface{}) *JoinDeclaration {
+func (d *D) JoinFlat(vars ...interface{}) *joinDeclaration {
 	jd := d.Join(vars...)
 	jd.selectWhereFlat = true
 	return jd
 }
 
-type JoinDeclaration struct {
+type joinDeclaration struct {
 	d               *D
 	sources         []Relation
 	selectWhereFunc interface{}
@@ -111,12 +111,12 @@ type JoinDeclaration struct {
 	into            Relation
 }
 
-func (jd *JoinDeclaration) IntoAsync(dest interface{}) {
+func (jd *joinDeclaration) IntoAsync(dest interface{}) {
 	jd.async = true
 	jd.Into(dest)
 }
 
-func (jd *JoinDeclaration) Into(dest interface{}) {
+func (jd *joinDeclaration) Into(dest interface{}) {
 	var r *Relation
 	rt := reflect.TypeOf(r).Elem()
 

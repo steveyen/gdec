@@ -31,7 +31,7 @@ func (d *D) tickCore() {
 	}
 }
 
-func (jd *JoinDeclaration) executeJoinInto() {
+func (jd *joinDeclaration) executeJoinInto() {
 	numSources := len(jd.sources)
 
 	join := make([]interface{}, numSources)
