@@ -31,8 +31,8 @@ func TestShortestPath(t *testing.T) {
 	links := d.Relations["ShortestPathLink"].(*LSet)
 	paths := d.Relations["ShortestPath"].(*LSet)
 
-	links.Add(&ShortestPathLink{From: "a", To: "b", Cost: 1})
-	links.Add(&ShortestPathLink{From: "b", To: "c", Cost: 1})
+	links.Add(&ShortestPathLink{From: "a", To: "b", Cost: 10})
+	links.Add(&ShortestPathLink{From: "b", To: "c", Cost: 10})
 	if links.Size() != 2 {
 		t.Errorf("expected 2 links, got: %v", links.Size())
 	}
@@ -46,5 +46,16 @@ func TestShortestPath(t *testing.T) {
 	}
 	if paths.Size() != 3 {
 		t.Errorf("expected 3 links, got: %v, paths: %#v", paths.Size(), paths.m)
+	}
+
+	d = ShortestPathInit(NewD(""), "")
+	links = d.Relations["ShortestPathLink"].(*LSet)
+	paths = d.Relations["ShortestPath"].(*LSet)
+	links.Add(&ShortestPathLink{From: "a", To: "b", Cost: 10})
+	links.Add(&ShortestPathLink{From: "b", To: "c", Cost: 10})
+	links.Add(&ShortestPathLink{From: "a", To: "b", Cost: 1})
+	d.Tick()
+	if paths.Size() != 5 {
+		t.Errorf("expected 5 links, got: %v, paths: %#v", paths.Size(), paths.m)
 	}
 }

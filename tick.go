@@ -5,6 +5,12 @@ import (
 	"reflect"
 )
 
+type relationChange struct {
+	into Relation
+	arg  interface{} // Arg for Add/Merge() call.
+	add  bool        // Use Add() versus Merge().
+}
+
 func (d *D) Tick() {
 	d.tickBefore()
 	d.tickCore()
@@ -14,17 +20,9 @@ func (d *D) Tick() {
 func (d *D) tickBefore() {
 	// TODO: Incorporate periodics.
 	// TODO: Incorporate network.
-	// Incorporate next.
-	for name, arr := range d.next {
-		r := d.Relations[name]
-		if r == nil {
-			panic(fmt.Sprintf("unknown relation: %s", name))
-		}
-		for _, x := range arr {
-			r.Add(x)
-		}
-	}
-	d.next = make(map[string][]interface{})
+
+	applyRelationChanges(d.next)
+	d.next = d.next[0:0]
 }
 
 func (d *D) tickCore() {
@@ -38,12 +36,7 @@ func (jd *JoinDeclaration) executeJoinInto() {
 
 	join := make([]interface{}, numSources)
 
-	type joinAccum struct {
-		into Relation
-		val interface{}
-		add bool
-	}
-	accums := []joinAccum{}
+	accums := []relationChange{}
 
 	accum := func() {
 		if jd.selectWhereFunc != nil {
@@ -60,15 +53,18 @@ func (jd *JoinDeclaration) executeJoinInto() {
 				out0 := out[0].Interface()
 				if out0 != nil {
 					if jd.selectWhereFlat {
-						accums = append(accums, joinAccum{jd.into, out0, false})
+						accums = append(accums,
+							relationChange{jd.into, out0, false})
 					} else {
-						accums = append(accums, joinAccum{jd.into, out0, true})
+						accums = append(accums,
+							relationChange{jd.into, out0, true})
 					}
 				}
 			}
 		} else if len(join) == 1 {
 			if join[0] != nil {
-				accums = append(accums, joinAccum{jd.into, join[0], true})
+				accums = append(accums,
+					relationChange{jd.into, join[0], true})
 			}
 		} else {
 			panic("could not send join output into receiver")
@@ -78,7 +74,7 @@ func (jd *JoinDeclaration) executeJoinInto() {
 	var joiner func(int)
 	joiner = func(pos int) {
 		if pos < numSources {
-			for tuple := range(jd.sources[pos].Scan()) {
+			for tuple := range jd.sources[pos].Scan() {
 				if tuple == nil {
 					panic("Scan() gave nil tuple")
 				}
@@ -91,11 +87,15 @@ func (jd *JoinDeclaration) executeJoinInto() {
 	}
 	joiner(0)
 
-	for _, a := range accums {
-		if a.add {
-			a.into.Add(a.val)
+	applyRelationChanges(accums)
+}
+
+func applyRelationChanges(changes []relationChange) {
+	for _, c := range changes {
+		if c.add {
+			c.into.Add(c.arg)
 		} else {
-			a.into.Merge(a.val.(Relation))
+			c.into.Merge(c.arg.(Relation))
 		}
 	}
 }
