@@ -8,7 +8,7 @@ import (
 type Lattice interface{}
 
 type LMap struct {
-	d *D
+	d       *D
 	scratch bool
 }
 
@@ -18,21 +18,21 @@ type LMapEntry struct {
 }
 
 type LSet struct {
-	d *D
-	t reflect.Type
-	m map[string]interface{}
+	d       *D
+	t       reflect.Type
+	m       map[string]interface{}
 	scratch bool
 }
 
 type LMax struct {
-	d *D
-	v int
+	d       *D
+	v       int
 	scratch bool
 }
 
 type LBool struct {
-	d *D
-	v bool
+	d       *D
+	v       bool
 	scratch bool
 }
 

@@ -154,3 +154,18 @@ func (jd *joinDeclaration) Into(dest interface{}) {
 
 	jd.d.Joins = append(jd.d.Joins, jd)
 }
+
+func Scratch(r Relation) Relation { // Concise readability sugar.
+	r.DeclareScratch()
+	return r
+}
+
+func Input(r Relation) Relation { // Concise readability sugar.
+	r.DeclareScratch()
+	return r
+}
+
+func Output(r Relation) Relation { // Concise readability sugar.
+	r.DeclareScratch()
+	return r
+}

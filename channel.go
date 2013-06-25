@@ -5,8 +5,8 @@ import (
 )
 
 type Channel struct {
-	d *D
-	t reflect.Type
+	d       *D
+	t       reflect.Type
 	scratch bool
 }
 
