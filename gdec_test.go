@@ -41,6 +41,9 @@ func TestShortestPath(t *testing.T) {
 	}
 
 	d.Tick()
+	if d.ticks != 1 {
+		t.Errorf("expected 1 ticks, got: %v", d.ticks)
+	}
 	if paths.Size() != 3 {
 		t.Errorf("expected 3 links, got: %v, paths: %#v", paths.Size(), paths.m)
 	}
