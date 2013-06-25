@@ -20,3 +20,15 @@ func (d *D) NewChannel(x interface{}) *Channel {
 func (c *Channel) TupleType() reflect.Type {
 	return c.t
 }
+
+func (c *Channel) Add(v interface{}) {
+	panic("Channel.Add() unimplemented")
+}
+
+func (c *Channel) Merge(rel Relation) {
+	panic("Channel.Merge unimplemented")
+}
+
+func (c *Channel) Scan() chan interface{} {
+	panic("Channel.Scan() unimplemented")
+}

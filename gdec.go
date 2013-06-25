@@ -10,10 +10,14 @@ type D struct {
 	Relations map[string]Relation
 	Joins     []*JoinDeclaration
 	ticks     int64
+	next      map[string][]interface{}
 }
 
 type Relation interface {
 	TupleType() reflect.Type
+	Add(tuple interface{})
+	Merge(rel Relation)
+	Scan() chan interface{}
 }
 
 func NewD(addr string) *D {
@@ -21,6 +25,7 @@ func NewD(addr string) *D {
 		Addr:      addr,
 		Relations: make(map[string]Relation),
 		Joins:     []*JoinDeclaration{},
+		next:      make(map[string][]interface{}),
 	}
 }
 
