@@ -1,6 +1,7 @@
 package gdec
 
 import (
+	"encoding/json"
 	"reflect"
 )
 
@@ -18,6 +19,7 @@ type LMapEntry struct {
 type LSet struct {
 	d *D
 	t reflect.Type
+	m map[string]bool
 }
 
 type LMax struct {
@@ -46,7 +48,9 @@ func (d *D) DeclareLBool(name string) *LBool {
 
 func (d *D) NewLMap() *LMap { return &LMap{d: d} }
 
-func (d *D) NewLSet(x interface{}) *LSet { return &LSet{d: d, t: reflect.TypeOf(x)} }
+func (d *D) NewLSet(x interface{}) *LSet {
+	return &LSet{d: d, t: reflect.TypeOf(x), m: map[string]bool{}}
+}
 
 func (d *D) NewLMax() *LMax { return &LMax{d: d} }
 
@@ -78,8 +82,16 @@ func (m *LMap) Snapshot() *LMap {
 	return nil
 }
 
+func (m *LSet) Add(v interface{}) {
+	j, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	m.m[string(j)] = true
+}
+
 func (m *LSet) Size() int {
-	return 0
+	return len(m.m)
 }
 
 func (m *LMax) Int() int {

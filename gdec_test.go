@@ -25,3 +25,17 @@ func TestQuorum(t *testing.T) {
 	d := QuorumInit(NewD(""), "", 5, "")
 	fmt.Printf("%#v\n", d)
 }
+
+func TestShortestPath(t *testing.T) {
+	d := ShortestPathInit(NewD(""), "")
+	links := d.Relations["ShortestPathLink"].(*LSet)
+	// paths := d.Relations["ShortestPath"].(*LSet)
+
+	links.Add(&ShortestPathLink{From: "a", To: "b", Cost: 1})
+	links.Add(&ShortestPathLink{From: "b", To: "c", Cost: 1})
+	if links.Size() != 2 {
+		t.Errorf("expected 2 links, got: %v", links.Size())
+	}
+
+	d.Tick()
+}

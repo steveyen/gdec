@@ -117,8 +117,8 @@ func (jd *JoinDeclaration) Into(dest interface{}) {
 
 	dt := reflect.TypeOf(dest)
 	if !dt.Implements(rt) {
-		panic(fmt.Sprintf("Into() param: %#v, type: %v, does not implement Relation",
-			dest, dt))
+		panic(fmt.Sprintf("Into() param: %#v, type: %v"+
+			", does not implement Relation", dest, dt))
 	}
 
 	jd.into = dest.(Relation)
