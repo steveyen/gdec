@@ -36,9 +36,9 @@ func (jd *JoinDeclaration) executeJoinInto() {
 
 	join := make([]interface{}, numSources)
 
-	accums := []relationChange{}
+	immediate := []relationChange{}
 
-	accum := func() {
+	selectWhere := func(results []relationChange) []relationChange {
 		if jd.selectWhereFunc != nil {
 			values := make([]reflect.Value, numSources)
 			for i, x := range join {
@@ -53,22 +53,23 @@ func (jd *JoinDeclaration) executeJoinInto() {
 				out0 := out[0].Interface()
 				if out0 != nil {
 					if jd.selectWhereFlat {
-						accums = append(accums,
+						return append(results,
 							relationChange{jd.into, out0, false})
 					} else {
-						accums = append(accums,
+						return append(results,
 							relationChange{jd.into, out0, true})
 					}
 				}
 			}
 		} else if len(join) == 1 {
 			if join[0] != nil {
-				accums = append(accums,
+				return append(results,
 					relationChange{jd.into, join[0], true})
 			}
 		} else {
 			panic("could not send join output into receiver")
 		}
+		return results
 	}
 
 	var joiner func(int)
@@ -82,12 +83,16 @@ func (jd *JoinDeclaration) executeJoinInto() {
 				joiner(pos + 1)
 			}
 		} else {
-			accum()
+			if jd.async {
+				jd.d.next = selectWhere(jd.d.next)
+			} else {
+				immediate = selectWhere(immediate)
+			}
 		}
 	}
 	joiner(0)
 
-	applyRelationChanges(accums)
+	applyRelationChanges(immediate)
 }
 
 func applyRelationChanges(changes []relationChange) {
