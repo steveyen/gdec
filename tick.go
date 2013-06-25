@@ -12,21 +12,21 @@ type relationChange struct {
 }
 
 func (d *D) Tick() {
-	d.tickBefore()
-	d.tickCore()
-	d.ticks++
-}
+	for _, r := range d.Relations {
+		r.startTick()
+	}
 
-func (d *D) tickBefore() {
-	// TODO: Clear scratch relations.
 	// TODO: Incorporate periodics.
 	// TODO: Incorporate network.
 
-	applyRelationChanges(d.next)
+	applyRelationChanges(d.next) // Apply pending data from last tick.
 	d.next = d.next[0:0]
+
+	d.tickMain()
+	d.ticks++
 }
 
-func (d *D) tickCore() {
+func (d *D) tickMain() {
 	for {
 		changed := false
 		for _, jd := range d.Joins {

@@ -62,11 +62,6 @@ func (d *D) NewLMax() *LMax { return &LMax{d: d} }
 
 func (d *D) NewLBool() *LBool { return &LBool{d: d} }
 
-func (m *LMap) TupleType() reflect.Type {
-	var x *LMapEntry
-	return reflect.TypeOf(x).Elem()
-}
-
 func (m *LMap) DeclareScratch() {
 	m.scratch = true
 }
@@ -81,6 +76,35 @@ func (m *LMax) DeclareScratch() {
 
 func (m *LBool) DeclareScratch() {
 	m.scratch = true
+}
+
+func (m *LMap) startTick() {
+	if m.scratch {
+		// TODO.
+	}
+}
+
+func (m *LSet) startTick() {
+	if m.scratch {
+		m.m = map[string]interface{}{}
+	}
+}
+
+func (m *LMax) startTick() {
+	if m.scratch {
+		m.v = 0
+	}
+}
+
+func (m *LBool) startTick() {
+	if m.scratch {
+		m.v = false
+	}
+}
+
+func (m *LMap) TupleType() reflect.Type {
+	var x *LMapEntry
+	return reflect.TypeOf(x).Elem()
 }
 
 func (m *LSet) TupleType() reflect.Type {

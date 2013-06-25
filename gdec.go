@@ -16,6 +16,8 @@ type D struct {
 type Relation interface {
 	DeclareScratch()
 
+	startTick()
+
 	TupleType() reflect.Type
 
 	Add(tuple interface{}) bool // Returns true if Relation changed.

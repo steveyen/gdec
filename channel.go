@@ -22,6 +22,12 @@ func (c *Channel) DeclareScratch() {
 	c.scratch = true
 }
 
+func (c *Channel) startTick() {
+	if c.scratch {
+		// TODO.
+	}
+}
+
 func (c *Channel) TupleType() reflect.Type {
 	return c.t
 }
