@@ -67,7 +67,9 @@ func (jd *JoinDeclaration) executeJoinInto() {
 				}
 			}
 		} else if len(join) == 1 {
-			accums = append(accums, joinAccum{jd.into, join[0], true})
+			if join[0] != nil {
+				accums = append(accums, joinAccum{jd.into, join[0], true})
+			}
 		} else {
 			panic("could not send join output into receiver")
 		}
