@@ -14,7 +14,10 @@ type D struct {
 }
 
 type Relation interface {
+	DeclareScratch()
+
 	TupleType() reflect.Type
+
 	Add(tuple interface{}) bool // Returns true if Relation changed.
 	Merge(rel Relation) bool    // Returns true if Relation changed.
 	Scan() chan interface{}

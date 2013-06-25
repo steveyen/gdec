@@ -7,6 +7,7 @@ import (
 type Channel struct {
 	d *D
 	t reflect.Type
+	scratch bool
 }
 
 func (d *D) DeclareChannel(name string, x interface{}) *Channel {
@@ -15,6 +16,10 @@ func (d *D) DeclareChannel(name string, x interface{}) *Channel {
 
 func (d *D) NewChannel(x interface{}) *Channel {
 	return &Channel{d: d, t: reflect.TypeOf(x)}
+}
+
+func (c *Channel) DeclareScratch() {
+	c.scratch = true
 }
 
 func (c *Channel) TupleType() reflect.Type {

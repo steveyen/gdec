@@ -9,6 +9,7 @@ type Lattice interface{}
 
 type LMap struct {
 	d *D
+	scratch bool
 }
 
 type LMapEntry struct {
@@ -20,16 +21,19 @@ type LSet struct {
 	d *D
 	t reflect.Type
 	m map[string]interface{}
+	scratch bool
 }
 
 type LMax struct {
 	d *D
 	v int
+	scratch bool
 }
 
 type LBool struct {
 	d *D
 	v bool
+	scratch bool
 }
 
 func (d *D) DeclareLMap(name string) *LMap {
@@ -61,6 +65,22 @@ func (d *D) NewLBool() *LBool { return &LBool{d: d} }
 func (m *LMap) TupleType() reflect.Type {
 	var x *LMapEntry
 	return reflect.TypeOf(x).Elem()
+}
+
+func (m *LMap) DeclareScratch() {
+	m.scratch = true
+}
+
+func (m *LSet) DeclareScratch() {
+	m.scratch = true
+}
+
+func (m *LMax) DeclareScratch() {
+	m.scratch = true
+}
+
+func (m *LBool) DeclareScratch() {
+	m.scratch = true
 }
 
 func (m *LSet) TupleType() reflect.Type {
