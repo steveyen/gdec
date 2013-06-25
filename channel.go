@@ -18,6 +18,10 @@ func (d *D) NewChannel(x interface{}) *Channel {
 	return &Channel{d: d, t: reflect.TypeOf(x)}
 }
 
+func (c *Channel) TupleType() reflect.Type {
+	return c.t
+}
+
 func (c *Channel) DeclareScratch() {
 	c.scratch = true
 }
@@ -26,10 +30,6 @@ func (c *Channel) startTick() {
 	if c.scratch {
 		// TODO.
 	}
-}
-
-func (c *Channel) TupleType() reflect.Type {
-	return c.t
 }
 
 func (c *Channel) Add(v interface{}) bool {
