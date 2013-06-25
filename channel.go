@@ -21,12 +21,14 @@ func (c *Channel) TupleType() reflect.Type {
 	return c.t
 }
 
-func (c *Channel) Add(v interface{}) {
+func (c *Channel) Add(v interface{}) bool {
 	panic("Channel.Add() unimplemented")
+	return false
 }
 
-func (c *Channel) Merge(rel Relation) {
+func (c *Channel) Merge(rel Relation) bool {
 	panic("Channel.Merge unimplemented")
+	return false
 }
 
 func (c *Channel) Scan() chan interface{} {

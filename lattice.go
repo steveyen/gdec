@@ -76,11 +76,12 @@ func (m *LBool) TupleType() reflect.Type {
 	return reflect.TypeOf(x)
 }
 
-func (m *LMap) Add(v interface{}) {
+func (m *LMap) Add(v interface{}) bool {
 	panic("LMap.Add unimplemented")
+	return false
 }
 
-func (m *LSet) Add(v interface{}) {
+func (m *LSet) Add(v interface{}) bool {
 	if v == nil {
 		panic("unexpected nil during LSet.Add")
 	}
@@ -91,37 +92,47 @@ func (m *LSet) Add(v interface{}) {
 	if string(j) == "null" {
 		panic("unexpected null during LSet.Add")
 	}
-	m.m[string(j)] = v
+	js := string(j)
+	_, changed := m.m[js]
+	m.m[js] = v
+	return changed
 }
 
-func (m *LMax) Add(v interface{}) {
+func (m *LMax) Add(v interface{}) bool {
 	vi := v.(int)
 	if m.v < vi {
 		m.v = vi
+		return true
 	}
+	return false
 }
 
-func (m *LBool) Add(v interface{}) {
+func (m *LBool) Add(v interface{}) bool {
+	old := m.v
 	m.v = m.v || v.(bool)
+	return m.v == old
 }
 
-func (m *LMap) Merge(rel Relation) {
+func (m *LMap) Merge(rel Relation) bool {
 	panic("LMap.Merge unimplemented")
+	return false
 }
 
-func (m *LSet) Merge(rel Relation) {
+func (m *LSet) Merge(rel Relation) bool {
+	changed := false
 	r := rel.(*LSet)
 	for _, v := range r.m {
-		m.Add(v)
+		changed = changed || m.Add(v)
 	}
+	return changed
 }
 
-func (m *LMax) Merge(rel Relation) {
-	m.Add(rel.(*LMax).v)
+func (m *LMax) Merge(rel Relation) bool {
+	return m.Add(rel.(*LMax).v)
 }
 
-func (m *LBool) Merge(rel Relation) {
-	m.Add(rel.(*LBool).v)
+func (m *LBool) Merge(rel Relation) bool {
+	return m.Add(rel.(*LBool).v)
 }
 
 func (m *LMap) Scan() chan interface{} {

@@ -26,12 +26,18 @@ func (d *D) tickBefore() {
 }
 
 func (d *D) tickCore() {
-	for _, jd := range d.Joins {
-		jd.executeJoinInto()
+	for {
+		changed := false
+		for _, jd := range d.Joins {
+			changed = changed || jd.executeJoinInto()
+		}
+		if changed {
+			return
+		}
 	}
 }
 
-func (jd *joinDeclaration) executeJoinInto() {
+func (jd *joinDeclaration) executeJoinInto() bool {
 	numSources := len(jd.sources)
 
 	join := make([]interface{}, numSources)
@@ -92,15 +98,17 @@ func (jd *joinDeclaration) executeJoinInto() {
 	}
 	joiner(0)
 
-	applyRelationChanges(immediate)
+	return applyRelationChanges(immediate)
 }
 
-func applyRelationChanges(changes []relationChange) {
+func applyRelationChanges(changes []relationChange) bool {
+	changed := false
 	for _, c := range changes {
 		if c.add {
-			c.into.Add(c.arg)
+			changed = changed || c.into.Add(c.arg)
 		} else {
-			c.into.Merge(c.arg.(Relation))
+			changed = changed || c.into.Merge(c.arg.(Relation))
 		}
 	}
+	return changed
 }

@@ -15,8 +15,8 @@ type D struct {
 
 type Relation interface {
 	TupleType() reflect.Type
-	Add(tuple interface{})
-	Merge(rel Relation)
+	Add(tuple interface{}) bool // Returns true if Relation changed.
+	Merge(rel Relation) bool    // Returns true if Relation changed.
 	Scan() chan interface{}
 }
 
