@@ -18,6 +18,7 @@ func (d *D) Tick() {
 }
 
 func (d *D) tickBefore() {
+	// TODO: Clear scratch relations.
 	// TODO: Incorporate periodics.
 	// TODO: Incorporate network.
 
