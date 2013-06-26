@@ -41,6 +41,12 @@ func NewD(addr string) *D {
 	}
 }
 
+func (d *D) DeclareChannel(name string, x interface{}) *LSet {
+	c := d.DeclareLSet(name, x)
+	c.channel = true
+	return c
+}
+
 func (d *D) DeclareRelation(name string, x Relation) Relation {
 	if d.Relations[name] != nil {
 		panic(fmt.Sprintf("relation redeclared, name: %s"+
