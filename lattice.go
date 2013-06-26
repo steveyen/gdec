@@ -266,6 +266,22 @@ func (m *LMap) At(key string) Lattice {
 	return v
 }
 
+func (m *LSet) Contains(v interface{}) bool {
+	if v == nil {
+		panic("unexpected nil during LSet.Contains")
+	}
+	j, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	if string(j) == "null" {
+		panic("unexpected null during LSet.Contains")
+	}
+	js := string(j)
+	_, ok := m.m[js]
+	return ok
+}
+
 func (m *LSet) Size() int {
 	return len(m.m)
 }

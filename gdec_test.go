@@ -47,6 +47,9 @@ func TestShortestPath(t *testing.T) {
 	if paths.Size() != 3 {
 		t.Errorf("expected 3 links, got: %v, paths: %#v", paths.Size(), paths.m)
 	}
+	if !paths.Contains(&ShortestPath{From: "a", To: "c", Next: "b", Cost: 20}) {
+		t.Errorf("expected paths to contain a->b")
+	}
 
 	d = ShortestPathInit(NewD(""), "")
 	links = d.Relations["ShortestPathLink"].(*LSet)
@@ -57,5 +60,14 @@ func TestShortestPath(t *testing.T) {
 	d.Tick()
 	if paths.Size() != 5 {
 		t.Errorf("expected 5 links, got: %v, paths: %#v", paths.Size(), paths.m)
+	}
+	if !paths.Contains(&ShortestPath{From: "a", To: "c", Next: "b", Cost: 20}) {
+		t.Errorf("expected paths to contain a->b")
+	}
+	if !paths.Contains(&ShortestPath{From: "a", To: "c", Next: "b", Cost: 11}) {
+		t.Errorf("expected paths to contain a->b")
+	}
+	if paths.Contains(&ShortestPath{From: "a", To: "c", Next: "b", Cost: 1}) {
+		t.Errorf("expected paths to to not contain a->b at the wrong cost")
 	}
 }
