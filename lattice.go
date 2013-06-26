@@ -5,10 +5,13 @@ import (
 	"reflect"
 )
 
-type Lattice interface{}
+type Lattice interface{
+	Merge(rel Relation) bool
+}
 
 type LMap struct {
 	d       *D
+	m       map[string]Lattice
 	scratch bool
 }
 
@@ -52,7 +55,7 @@ func (d *D) DeclareLBool(name string) *LBool {
 	return d.DeclareRelation(name, d.NewLBool()).(*LBool)
 }
 
-func (d *D) NewLMap() *LMap { return &LMap{d: d} }
+func (d *D) NewLMap() *LMap { return &LMap{d: d, m: map[string]Lattice{}} }
 
 func (d *D) NewLSet(x interface{}) *LSet {
 	return &LSet{d: d, t: reflect.TypeOf(x), m: map[string]interface{}{}}
@@ -98,7 +101,7 @@ func (m *LBool) DeclareScratch() {
 
 func (m *LMap) startTick() {
 	if m.scratch {
-		// TODO.
+		m.m = map[string]Lattice{}
 	}
 }
 
@@ -121,8 +124,18 @@ func (m *LBool) startTick() {
 }
 
 func (m *LMap) Add(v interface{}) bool {
-	panic("LMap.Add unimplemented")
-	return false
+	if v == nil {
+		panic("unexpected nil during LMap.Add")
+	}
+	e := v.(LMapEntry)
+	o, _ := m.m[e.Key]
+	if o != nil {
+		changed := o.Merge(e.Val.(Relation))
+		m.m[e.Key] = o
+		return changed
+	}
+	m.m[e.Key] = e.Val
+	return true
 }
 
 func (m *LSet) Add(v interface{}) bool {
