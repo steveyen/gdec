@@ -16,13 +16,20 @@ type D struct {
 type Relation interface {
 	TupleType() reflect.Type
 
+	// Used a declaration time, marks the relation as "scratch",
+	// so it'll reset to zero at the start of each tick.
 	DeclareScratch()
 
+	// Invoked at the start of each tick.  Implementations marked as
+	// scratch should reset to zero.
 	startTick()
+
+	// Used by the join algorithm when it needs an iterator over all
+	// tuples in the relation.
+	Scan() chan interface{}
 
 	Add(tuple interface{}) bool // Returns true if Relation changed.
 	Merge(rel Relation) bool    // Returns true if Relation changed.
-	Scan() chan interface{}
 }
 
 func NewD(addr string) *D {
