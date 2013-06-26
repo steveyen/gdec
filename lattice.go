@@ -7,6 +7,7 @@ import (
 
 type Lattice interface{
 	Merge(rel Relation) bool
+	Snapshot() Lattice
 }
 
 type LMap struct {
@@ -44,7 +45,7 @@ func (d *D) DeclareLMap(name string) *LMap {
 }
 
 func (d *D) DeclareLSet(name string, x interface{}) *LSet {
-	return d.DeclareRelation(name, d.NewLSet(x)).(*LSet)
+	return d.DeclareRelation(name, d.NewLSet(reflect.TypeOf(x))).(*LSet)
 }
 
 func (d *D) DeclareLMax(name string) *LMax {
@@ -57,8 +58,8 @@ func (d *D) DeclareLBool(name string) *LBool {
 
 func (d *D) NewLMap() *LMap { return &LMap{d: d, m: map[string]Lattice{}} }
 
-func (d *D) NewLSet(x interface{}) *LSet {
-	return &LSet{d: d, t: reflect.TypeOf(x), m: map[string]interface{}{}}
+func (d *D) NewLSet(t reflect.Type) *LSet {
+	return &LSet{d: d, t: t, m: map[string]interface{}{}}
 }
 
 func (d *D) NewLMax() *LMax { return &LMax{d: d} }
@@ -226,12 +227,37 @@ func (m *LBool) Scan() chan interface{} {
 	return ch
 }
 
-func (m *LMap) At(key string) Lattice {
-	return nil
+func (m *LMap) Snapshot() Lattice {
+	s := m.d.NewLMap()
+	for k, v := range m.m {
+		s.m[k] = v.Snapshot()
+	}
+	return s
 }
 
-func (m *LMap) Snapshot() *LMap {
-	return nil
+func (m *LSet) Snapshot() Lattice {
+	s := m.d.NewLSet(m.t)
+	for k, v := range m.m {
+		s.m[k] = v // TODO: Need better deep clone.
+	}
+	return s
+}
+
+func (m *LMax) Snapshot() Lattice {
+	s := m.d.NewLMax()
+	s.v = m.v
+	return s
+}
+
+func (m *LBool) Snapshot() Lattice {
+	s := m.d.NewLBool()
+	s.v = m.v
+	return s
+}
+
+func (m *LMap) At(key string) Lattice {
+	v, _ := m.m[key]
+	return v
 }
 
 func (m *LSet) Size() int {
