@@ -26,7 +26,7 @@ type LSet struct {
 	t       reflect.Type
 	m       map[string]interface{}
 	scratch bool
-	channel bool // When true, this LSet has channel semantics.
+	channel bool // When true, this LSet was declared as a channel.
 }
 
 type LMax struct {
