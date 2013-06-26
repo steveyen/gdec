@@ -44,12 +44,11 @@ func (jd *joinDeclaration) executeJoinInto() bool {
 	numSources := len(jd.sources)
 
 	join := make([]interface{}, numSources)
-
+	values := make([]reflect.Value, numSources)
 	immediate := []relationChange{}
 
 	selectWhere := func(results []relationChange) []relationChange {
 		if jd.selectWhereFunc != nil {
-			values := make([]reflect.Value, numSources)
 			for i, x := range join {
 				values[i] = reflect.ValueOf(x)
 			}
