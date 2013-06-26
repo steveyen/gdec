@@ -239,7 +239,12 @@ func (m *LMap) Snapshot() Lattice {
 func (m *LSet) Snapshot() Lattice {
 	s := m.d.NewLSet(m.t)
 	for k, v := range m.m {
-		s.m[k] = v // TODO: Need better deep clone.
+		switch v.(type) {
+		case Lattice:
+			s.m[k] = v.(Lattice).Snapshot()
+		default:
+			s.m[k] = v
+		}
 	}
 	return s
 }
