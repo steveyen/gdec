@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-type Lattice interface{
+type Lattice interface {
 	Merge(rel Relation) bool
 	Snapshot() Lattice
 }
@@ -26,6 +26,7 @@ type LSet struct {
 	t       reflect.Type
 	m       map[string]interface{}
 	scratch bool
+	channel bool // When true, this LSet has channel semantics.
 }
 
 type LMax struct {
