@@ -24,10 +24,12 @@ func (d *D) Tick() {
 
 	d.tickMain()
 	d.ticks++
+
+	// TODO: Emit to network.
 }
 
 func (d *D) tickMain() {
-	for {
+	for { // TODO: Hugely naive, inefficient, simple implementation.
 		changed := false
 		for _, jd := range d.Joins {
 			changed = changed || jd.executeJoinInto()
