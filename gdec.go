@@ -43,6 +43,7 @@ func NewD(addr string) *D {
 
 func (d *D) DeclareChannel(name string, x interface{}) *LSet {
 	c := d.DeclareLSet(name, x)
+	c.DeclareScratch()
 	c.channel = true
 	return c
 }
