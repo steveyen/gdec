@@ -16,7 +16,7 @@ type D struct {
 type Relation interface {
 	TupleType() reflect.Type
 
-	// Used a declaration time, marks the relation as "scratch",
+	// Used at declaration time, marks the relation as "scratch",
 	// so it'll reset to zero at the start of each tick.
 	DeclareScratch()
 
