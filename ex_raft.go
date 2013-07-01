@@ -77,40 +77,40 @@ func RaftInit(d *D, prefix string) *D {
 
 	// members := d.DeclareLSet(prefix + "raftMember", "addrString")
 	// votedFor := d.DeclareLSet(prefix + "raftVotedFor", "addrString")
-	// votedForInCurrentTerm := d.DeclareLSet(prefix + "raftVotedForInCurrentTerm", "addrString")
-	// votedForInCurrentTick := d.DeclareLSet(prefix + "raftVotedForInCurrentTick", "addrString")
+	// votedForInCurrTerm := d.DeclareLSet(prefix + "raftVotedForInCurrTerm", "addrString")
+	// votedForInCurrTick := d.DeclareLSet(prefix + "raftVotedForInCurrTick", "addrString")
 
-	currentTerm := d.DeclareLMax(prefix + "raftCurrentTerm")
-	currentState := d.DeclareLMax(prefix + "raftCurrentState")
+	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
+	currState := d.DeclareLMax(prefix + "raftCurrState")
 
 	nextTerm := Scratch(d.DeclareLMax(prefix + "raftNextTerm"))
 	nextState := Scratch(d.DeclareLMax(prefix + "raftNextState"))
 
-	d.Join(currentTerm).
+	d.Join(currTerm).
 		IntoAsync(nextTerm)
 	d.Join(rvote, func(r *RaftVoteRequest) int { return r.Term }).
 		IntoAsync(nextTerm)
 
-	d.Join(rvote, currentTerm, currentState, func(r *RaftVoteRequest, term, state *int) int {
+	d.Join(rvote, currTerm, currState, func(r *RaftVoteRequest, term, state *int) int {
 		if r.Term > *term {
 			return stateKind(*state) + state_STEP_DOWN
 		}
 		return state_SAME
 	}).Into(nextState)
 
-	d.Join(currentState, nextState, func(curr, next *int) int {
-		if *next == state_STEP_DOWN {
+	d.Join(currState, nextState, func(curr, next *int) int {
+		if stateKind(*next) == state_STEP_DOWN {
 			return stateVersionNext(*curr)
 		}
 		return state_SAME
-	}).IntoAsync(currentState)
+	}).IntoAsync(currState)
 
-	d.Join(rvote, currentTerm, func(r *RaftVoteRequest, myCurrentTerm *int) *RaftVoteResponse {
-		if r.Term < *myCurrentTerm {
+	d.Join(rvote, currTerm, func(r *RaftVoteRequest, term *int) *RaftVoteResponse {
+		if r.Term < *term {
 			return &RaftVoteResponse{
 				To:      r.From,
 				From:    r.To,
-				Term:    *myCurrentTerm,
+				Term:    *term,
 				Granted: false,
 			}
 		}
