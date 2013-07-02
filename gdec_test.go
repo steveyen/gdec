@@ -78,6 +78,50 @@ func TestTally(t *testing.T) {
 	}
 }
 
+func TestMultiTally(t *testing.T) {
+	d := MultiTallyInit(NewD("multiTallyTest"), "")
+
+	tvote := d.Relations["MultiTallyVote"].(*LSet)
+	tneed := d.Relations["MultiTallyNeed"].(*LMax)
+	tdone := d.Relations["MultiTallyDone"].(*LMap)
+
+	if !tneed.DirectAdd(2) {
+		t.Errorf("expected tneed to change")
+	}
+	if tneed.Int() != 2 {
+		t.Errorf("expected tneed to be 2")
+	}
+	d.Tick()
+	if tdone.At("A") != nil {
+		t.Errorf("should not have done for A")
+	}
+
+	d.AddNext(tvote, &MultiTallyVote{"A", "a0"})
+	d.Tick()
+	if tdone.At("A").(*LBool).Bool() {
+		t.Errorf("should not have done for A")
+	}
+
+	d.AddNext(tvote, &MultiTallyVote{"A", "a0"})
+	d.Tick()
+	if tdone.At("A").(*LBool).Bool() {
+		t.Errorf("should not have done for A")
+	}
+	if tdone.At("B") != nil {
+		t.Errorf("should not have done for B")
+	}
+
+	d.AddNext(tvote, &MultiTallyVote{"B", "b0"})
+	d.AddNext(tvote, &MultiTallyVote{"A", "a1"})
+	d.Tick()
+	if !tdone.At("A").(*LBool).Bool() {
+		t.Errorf("should be done for A")
+	}
+	if tdone.At("B").(*LBool).Bool() {
+		t.Errorf("should not have done for B")
+	}
+}
+
 func TestShortestPath(t *testing.T) {
 	d := ShortestPathInit(NewD(""), "")
 	links := d.Relations["ShortestPathLink"].(*LSet)

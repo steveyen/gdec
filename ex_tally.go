@@ -29,7 +29,7 @@ func MultiTallyInit(d *D, prefix string) *D {
 	tneed := d.DeclareLMax(prefix + "MultiTallyNeed")
 	tdone := d.Output(d.DeclareLMap(prefix + "MultiTallyDone")) // Key: raceStr, val: LBool.
 
-	ttotal := d.DeclareLMap(prefix + "tallyTotal") // Key: raceStr, val: LSet[voterStr].
+	ttotal := d.DeclareLMap(prefix + "multiTallyTotal") // Key: raceStr, val: LSet[voterStr].
 
 	d.Join(tvote, func(tvote *MultiTallyVote) *LMapEntry {
 		return &LMapEntry{tvote.Race, NewLSetOne(d, tvote.Voter)}
