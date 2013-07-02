@@ -46,7 +46,6 @@ const (
 	state_CANDIDATE = 1
 	state_LEADER    = 2
 	state_STEP_DOWN = 3 // Must be largest for LMax precedence.
-	state_SAME      = 0 // Used to denote no change to state kind.
 
 	state_KIND_MASK    = 0x0000000f
 	state_VERSION_MASK = 0xfffffff0 // Highest bits are version.
@@ -85,25 +84,46 @@ func RaftInit(d *D, prefix string) *D {
 	nextTerm := Scratch(d.DeclareLMax(prefix + "raftNextTerm"))
 	nextState := Scratch(d.DeclareLMax(prefix + "raftNextState"))
 
+	alarm := Scratch(d.DeclareLBool(prefix + "raftAlarm")) // TODO: periodic.
+
 	d.Join(currTerm).
-		IntoAsync(nextTerm)
-	d.Join(rvote, func(r *RaftVoteRequest) int { return r.Term }).
-		IntoAsync(nextTerm)
+		Into(nextTerm)
+
+	d.Join(currState, func(currState *int) int { return stateKind(*currState) }).
+		Into(nextState)
+
+	// Incoming vote requests.
+
+	d.Join(rvote, func(rvote *RaftVoteRequest) int { return rvote.Term }).
+		Into(nextTerm)
 
 	d.Join(rvote, currTerm, currState,
 		func(rvote *RaftVoteRequest, currTerm *int, currState *int) int {
 			if rvote.Term > *currTerm {
 				return state_STEP_DOWN
 			}
-			return state_SAME
+			return stateKind(*currState)
 		}).Into(nextState)
 
-	d.Join(currState, nextState, func(currState *int, nextState *int) int {
-		if *nextState == state_STEP_DOWN {
-			return stateVersionNext(*currState) + state_FOLLOWER
-		}
-		return stateVersion(*currState) + stateKind(*nextState)
-	}).IntoAsync(currState)
+	// Timeouts.
+
+	// Transition to candidate state, with a new term.
+	d.Join(alarm, currTerm, currState,
+		func(alarm *bool, currTerm *int, currState *int) int {
+			if *alarm && stateKind(*currState) != state_LEADER {
+				return *currTerm + 1
+			}
+			return *currTerm
+		}).Into(nextTerm)
+
+	// Transition to candidate state.
+	d.Join(alarm, currState,
+		func(alarm *bool, currState *int) int {
+			if *alarm && stateKind(*currState) != state_LEADER {
+				return state_CANDIDATE
+			}
+			return stateKind(*currState)
+		}).Into(nextState)
 
 	d.Join(rvote, currTerm,
 		func(rvote *RaftVoteRequest, currTerm *int) *RaftVoteResponse {
@@ -118,7 +138,18 @@ func RaftInit(d *D, prefix string) *D {
 			return nil // TODO.
 		}).IntoAsync(rvoter)
 
-	// TODO.
+	// Incorporate next term and next state.
+
+	d.Join(nextTerm).
+		IntoAsync(currTerm)
+
+	d.Join(nextState, currState,
+		func(nextState *int, currState *int) int {
+			if *nextState == state_STEP_DOWN {
+				return stateVersionNext(*currState) + state_FOLLOWER
+			}
+			return stateVersion(*currState) + stateKind(*nextState)
+		}).IntoAsync(currState)
 
 	return d
 }
