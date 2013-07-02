@@ -93,6 +93,7 @@ func RaftInit(d *D, prefix string) *D {
 	nextVote := d.DeclareLSet(prefix+"raftNextVote", "addrString")
 
 	tally := d.DeclareLMap(prefix + "raftTally") // Votes from others.
+	wonTerm := d.DeclareLSet(prefix+"raftWonTerm", 0)
 
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
@@ -195,6 +196,14 @@ func RaftInit(d *D, prefix string) *D {
 			}
 			return nil
 		}).Into(tally)
+
+	d.Join(wonTerm, currTerm, currState,
+		func(wonTerm *int, currTerm *int, currState *int) int {
+			if *wonTerm == *currTerm && stateKind(*currState) == state_CANDIDATE {
+				return state_LEADER
+			}
+			return stateKind(*currState)
+		}).Into(nextState)
 
 	// Incorporate next term and next state.
 
