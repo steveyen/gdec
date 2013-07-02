@@ -89,8 +89,10 @@ func RaftInit(d *D, prefix string) *D {
 	// votedForInCurrTerm := d.DeclareLSet(prefix + "raftVotedForInCurrTerm", "addrString")
 	// votedForInCurrTick := d.DeclareLSet(prefix + "raftVotedForInCurrTick", "addrString")
 
+	// currVote := d.DeclareLSet(prefix+"raftCurrVote", "addrString") // My vote.
 	nextVote := d.DeclareLSet(prefix+"raftNextVote", "addrString")
-	vote := d.DeclareLMap(prefix + "raftVote")
+
+	tally := d.DeclareLMap(prefix+"raftTally") // Votes from others.
 
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
@@ -157,8 +159,7 @@ func RaftInit(d *D, prefix string) *D {
 
 	d.Join(heartBeat, member, currState, currTerm, logState,
 		func(h *bool, mAddr *string, s *int, t *int, l *RaftLogState) *RaftVoteRequest {
-			voteKey := voteKey(*t, *mAddr)
-			if stateKind(*s) == state_CANDIDATE && vote.At(voteKey) == nil {
+			if stateKind(*s) == state_CANDIDATE && !tallyHasVoteFrom(tally, *t, *mAddr) {
 				return &RaftVoteRequest{
 					To:           *mAddr,
 					From:         d.Addr,
@@ -192,4 +193,10 @@ func init() {
 
 func voteKey(term int, addr string) string {
 	return fmt.Sprintf("%d%s", term, addr)
+}
+
+func tallyHasVoteFrom(tally *LMap, term int, addr string) bool {
+	voteKey := voteKey(term, addr)
+	voteVal := tally.At(voteKey)
+	return voteVal != nil && voteVal.(*LBool).Bool()
 }
