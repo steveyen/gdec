@@ -166,9 +166,9 @@ func (m *LSet) DirectAdd(v interface{}) bool {
 			", v: %#v, LSet.name: %s", v, m.name))
 	}
 	js := string(j)
-	_, changed := m.m[js]
+	_, exists := m.m[js]
 	m.m[js] = v
-	return changed
+	return !exists
 }
 
 func (m *LMax) DirectAdd(v interface{}) bool {
@@ -183,7 +183,7 @@ func (m *LMax) DirectAdd(v interface{}) bool {
 func (m *LBool) DirectAdd(v interface{}) bool {
 	old := m.v
 	m.v = m.v || v.(bool)
-	return m.v == old
+	return m.v != old
 }
 
 func (m *LMap) DirectMerge(rel Relation) bool {
