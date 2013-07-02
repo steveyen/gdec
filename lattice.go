@@ -6,7 +6,7 @@ import (
 )
 
 type Lattice interface {
-	Merge(rel Relation) bool
+	DirectMerge(rel Relation) bool
 	Snapshot() Lattice
 }
 
@@ -125,14 +125,14 @@ func (m *LBool) startTick() {
 	}
 }
 
-func (m *LMap) Add(v interface{}) bool {
+func (m *LMap) DirectAdd(v interface{}) bool {
 	if v == nil {
-		panic("unexpected nil during LMap.Add")
+		panic("unexpected nil during LMap.DirectAdd")
 	}
 	e := v.(LMapEntry)
 	o, _ := m.m[e.Key]
 	if o != nil {
-		changed := o.Merge(e.Val.(Relation))
+		changed := o.DirectMerge(e.Val.(Relation))
 		m.m[e.Key] = o
 		return changed
 	}
@@ -140,16 +140,16 @@ func (m *LMap) Add(v interface{}) bool {
 	return true
 }
 
-func (m *LSet) Add(v interface{}) bool {
+func (m *LSet) DirectAdd(v interface{}) bool {
 	if v == nil {
-		panic("unexpected nil during LSet.Add")
+		panic("unexpected nil during LSet.DirectAdd")
 	}
 	j, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
 	if string(j) == "null" {
-		panic("unexpected null during LSet.Add")
+		panic("unexpected null during LSet.DirectAdd")
 	}
 	js := string(j)
 	_, changed := m.m[js]
@@ -157,7 +157,7 @@ func (m *LSet) Add(v interface{}) bool {
 	return changed
 }
 
-func (m *LMax) Add(v interface{}) bool {
+func (m *LMax) DirectAdd(v interface{}) bool {
 	vi := v.(int)
 	if m.v < vi {
 		m.v = vi
@@ -166,32 +166,32 @@ func (m *LMax) Add(v interface{}) bool {
 	return false
 }
 
-func (m *LBool) Add(v interface{}) bool {
+func (m *LBool) DirectAdd(v interface{}) bool {
 	old := m.v
 	m.v = m.v || v.(bool)
 	return m.v == old
 }
 
-func (m *LMap) Merge(rel Relation) bool {
+func (m *LMap) DirectMerge(rel Relation) bool {
 	panic("LMap.Merge unimplemented")
 	return false
 }
 
-func (m *LSet) Merge(rel Relation) bool {
+func (m *LSet) DirectMerge(rel Relation) bool {
 	changed := false
 	r := rel.(*LSet)
 	for _, v := range r.m {
-		changed = changed || m.Add(v)
+		changed = changed || m.DirectAdd(v)
 	}
 	return changed
 }
 
-func (m *LMax) Merge(rel Relation) bool {
-	return m.Add(rel.(*LMax).v)
+func (m *LMax) DirectMerge(rel Relation) bool {
+	return m.DirectAdd(rel.(*LMax).v)
 }
 
-func (m *LBool) Merge(rel Relation) bool {
-	return m.Add(rel.(*LBool).v)
+func (m *LBool) DirectMerge(rel Relation) bool {
+	return m.DirectAdd(rel.(*LBool).v)
 }
 
 func (m *LMap) Scan() chan interface{} {

@@ -29,8 +29,8 @@ type Relation interface {
 	// tuples in the relation.
 	Scan() chan interface{}
 
-	Add(tuple interface{}) bool // Returns true if Relation changed.
-	Merge(rel Relation) bool    // Returns true if Relation changed.
+	DirectAdd(tuple interface{}) bool // Returns true if Relation changed.
+	DirectMerge(rel Relation) bool    // Returns true if Relation changed.
 }
 
 func NewD(addr string) *D {

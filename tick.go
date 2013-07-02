@@ -109,9 +109,9 @@ func applyRelationChanges(changes []relationChange) bool {
 	changed := false
 	for _, c := range changes {
 		if c.add {
-			changed = changed || c.into.Add(c.arg)
+			changed = changed || c.into.DirectAdd(c.arg)
 		} else {
-			changed = changed || c.into.Merge(c.arg.(Relation))
+			changed = changed || c.into.DirectMerge(c.arg.(Relation))
 		}
 	}
 	return changed
