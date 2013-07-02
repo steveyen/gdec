@@ -23,6 +23,19 @@ func TestReplicatedKV(t *testing.T) {
 
 func TestQuorum(t *testing.T) {
 	d := QuorumInit(NewD(""), "")
+
+	// qvote := d.Relations["QuorumVote"].(*LSet)
+	// qneeded := d.Relations["QuorumNeeded"].(*LMax)
+	qreached := d.Relations["QuorumReached"].(*LBool)
+
+	if qreached.Bool() {
+		t.Errorf("shouldn't have reached quorum already")
+	}
+	d.Tick()
+	if !qreached.Bool() {
+		t.Errorf("should have reached 0 quorum already")
+	}
+
 	fmt.Printf("%#v\n", d)
 }
 

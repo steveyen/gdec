@@ -2,6 +2,7 @@ package gdec
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 )
 
@@ -11,6 +12,7 @@ type Lattice interface {
 }
 
 type LMap struct {
+	name    string
 	d       *D
 	m       map[string]Lattice
 	scratch bool
@@ -22,6 +24,7 @@ type LMapEntry struct {
 }
 
 type LSet struct {
+	name    string
 	d       *D
 	t       reflect.Type
 	m       map[string]interface{}
@@ -30,31 +33,41 @@ type LSet struct {
 }
 
 type LMax struct {
+	name    string
 	d       *D
 	v       int
 	scratch bool
 }
 
 type LBool struct {
+	name    string
 	d       *D
 	v       bool
 	scratch bool
 }
 
 func (d *D) DeclareLMap(name string) *LMap {
-	return d.DeclareRelation(name, d.NewLMap()).(*LMap)
+	m := d.NewLMap()
+	m.name = name
+	return d.DeclareRelation(name, m).(*LMap)
 }
 
 func (d *D) DeclareLSet(name string, x interface{}) *LSet {
-	return d.DeclareRelation(name, d.NewLSet(reflect.TypeOf(x))).(*LSet)
+	m := d.NewLSet(reflect.TypeOf(x))
+	m.name = name
+	return d.DeclareRelation(name, m).(*LSet)
 }
 
 func (d *D) DeclareLMax(name string) *LMax {
-	return d.DeclareRelation(name, d.NewLMax()).(*LMax)
+	m := d.NewLMax()
+	m.name = name
+	return d.DeclareRelation(name, m).(*LMax)
 }
 
 func (d *D) DeclareLBool(name string) *LBool {
-	return d.DeclareRelation(name, d.NewLBool()).(*LBool)
+	m := d.NewLBool()
+	m.name = name
+	return d.DeclareRelation(name, m).(*LBool)
 }
 
 func (d *D) NewLMap() *LMap { return &LMap{d: d, m: map[string]Lattice{}} }
@@ -149,7 +162,8 @@ func (m *LSet) DirectAdd(v interface{}) bool {
 		panic(err)
 	}
 	if string(j) == "null" {
-		panic("unexpected null during LSet.DirectAdd")
+		panic(fmt.Sprintf("unexpected null during LSet.DirectAdd"+
+			", v: %#v, LSet.name: %s", v, m.name))
 	}
 	js := string(j)
 	_, changed := m.m[js]

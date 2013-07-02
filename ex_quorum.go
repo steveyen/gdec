@@ -2,8 +2,8 @@ package gdec
 
 func QuorumInit(d *D, prefix string) *D {
 	qvote := d.Input(d.DeclareLSet(prefix+"QuorumVote", "voterString"))
-	qneeded := d.DeclareLMax(prefix+"QuorumNeeded")
-	qreached := d.Output(d.DeclareLBool(prefix+"QuorumReached"))
+	qneeded := d.DeclareLMax(prefix + "QuorumNeeded")
+	qreached := d.Output(d.DeclareLBool(prefix + "QuorumReached"))
 
 	qtally := d.DeclareLSet(prefix+"quorumTally", "voterString")
 

@@ -59,7 +59,7 @@ func (jd *joinDeclaration) executeJoinInto(next, immediate []relationChange) (
 			if out == nil || len(out) != 1 {
 				panic(fmt.Sprintf("unexpected # out results: %#v", out))
 			}
-			if !out[0].IsNil() {
+			if out[0].IsValid() && !isNil(out[0]) {
 				out0 := out[0].Interface()
 				if out0 != nil {
 					if jd.selectWhereFlat {
@@ -115,4 +115,13 @@ func applyRelationChanges(changes []relationChange) bool {
 		}
 	}
 	return changed
+}
+
+func isNil(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
+		reflect.Ptr, reflect.Slice:
+		return v.IsNil()
+	}
+	return false
 }
