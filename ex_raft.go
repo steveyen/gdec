@@ -110,21 +110,20 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Timeouts.
 
-	// Transition to candidate state, with a new term, with a self-vote, resetting the alarm.
-	d.Join(alarm, currTerm, currState,
-		func(alarm *bool, currTerm *int, currState *int) {
-			if *alarm && stateKind(*currState) != state_LEADER {
-				d.Add(nextTerm, *currTerm+1)
-				d.Add(nextState, state_CANDIDATE)
-				d.Add(nextVote, d.Addr)
-				d.Add(resetAlarm, true)
-				return
-			}
-			d.Add(nextTerm, *currTerm)
-			d.Add(nextState, stateKind(*currState))
-			d.Add(nextVote, "")
-			d.Add(resetAlarm, false)
-		})
+	// Move to candidate state, with a new term, self-vote, and alarm reset.
+	d.Join(alarm, currTerm, currState, func(alarm *bool, currTerm *int, currState *int) {
+		if *alarm && stateKind(*currState) != state_LEADER {
+			d.Add(nextTerm, *currTerm+1)
+			d.Add(nextState, state_CANDIDATE)
+			d.Add(nextVote, d.Addr)
+			d.Add(resetAlarm, true)
+			return
+		}
+		d.Add(nextTerm, *currTerm)
+		d.Add(nextState, stateKind(*currState))
+		d.Add(nextVote, "")
+		d.Add(resetAlarm, false)
+	})
 
 	d.Join(rvote, currTerm,
 		func(rvote *RaftVoteRequest, currTerm *int) *RaftVoteResponse {
