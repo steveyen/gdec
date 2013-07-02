@@ -30,12 +30,11 @@ func (d *D) Tick() {
 
 func (d *D) tickMain() {
 	for { // TODO: Hugely naive, inefficient, simple implementation.
-		changed := false
 		for _, jd := range d.Joins {
 			d.next, d.immediate = jd.executeJoinInto(d.next, d.immediate)
-			changed = changed || applyRelationChanges(d.immediate)
-			d.immediate = d.immediate[0:0]
 		}
+		changed := applyRelationChanges(d.immediate)
+		d.immediate = d.immediate[0:0]
 		if !changed {
 			return
 		}

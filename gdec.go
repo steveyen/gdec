@@ -106,11 +106,13 @@ func (d *D) Join(vars ...interface{}) *joinDeclaration {
 		}
 	}
 
-	return &joinDeclaration{
+	jd := &joinDeclaration{
 		d:               d,
 		sources:         sources,
 		selectWhereFunc: selectWhereFunc,
 	}
+	d.Joins = append(d.Joins, jd)
+	return jd
 }
 
 func (d *D) JoinFlat(vars ...interface{}) *joinDeclaration {
@@ -137,6 +139,7 @@ func (d *D) MergeNext(r Relation, v interface{}) {
 
 type joinDeclaration struct {
 	d               *D
+	name            string
 	sources         []Relation
 	selectWhereFunc interface{}
 	selectWhereFlat bool
@@ -144,12 +147,18 @@ type joinDeclaration struct {
 	into            Relation
 }
 
-func (jd *joinDeclaration) IntoAsync(dest interface{}) {
-	jd.async = true
-	jd.Into(dest)
+func (jd *joinDeclaration) Name(name string) *joinDeclaration {
+	jd.name = name
+	return jd
 }
 
-func (jd *joinDeclaration) Into(dest interface{}) {
+func (jd *joinDeclaration) IntoAsync(dest interface{}) *joinDeclaration {
+	jd.async = true
+	jd.Into(dest)
+	return jd
+}
+
+func (jd *joinDeclaration) Into(dest interface{}) *joinDeclaration {
 	var r *Relation
 	rt := reflect.TypeOf(r).Elem()
 
@@ -182,7 +191,7 @@ func (jd *joinDeclaration) Into(dest interface{}) {
 		}
 	}
 
-	jd.d.Joins = append(jd.d.Joins, jd)
+	return jd
 }
 
 func (d *D) Scratch(r Relation) Relation { // Concise readability sugar.

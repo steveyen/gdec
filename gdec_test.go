@@ -22,10 +22,10 @@ func TestReplicatedKV(t *testing.T) {
 }
 
 func TestQuorum(t *testing.T) {
-	d := QuorumInit(NewD(""), "")
+	d := QuorumInit(NewD("quorumTest"), "")
 
-	// qvote := d.Relations["QuorumVote"].(*LSet)
-	// qneeded := d.Relations["QuorumNeeded"].(*LMax)
+	qvote := d.Relations["QuorumVote"].(*LSet)
+	qneeded := d.Relations["QuorumNeeded"].(*LMax)
 	qreached := d.Relations["QuorumReached"].(*LBool)
 
 	if qreached.Bool() {
@@ -36,7 +36,46 @@ func TestQuorum(t *testing.T) {
 		t.Errorf("should have reached 0 quorum already")
 	}
 
-	fmt.Printf("%#v\n", d)
+	if !qneeded.DirectAdd(2) {
+		t.Errorf("expected qneeded to change")
+	}
+	if qneeded.Int() != 2 {
+		t.Errorf("expected qneeded to be 2")
+	}
+	d.Tick()
+	if qreached.Bool() {
+		t.Errorf("should not have reached 2 quorum already")
+	}
+
+	d.AddNext(qvote, "a")
+	d.Tick()
+	if qreached.Bool() {
+		t.Errorf("should not have reached 2 quorum already")
+	}
+
+	d.AddNext(qvote, "a")
+	d.Tick()
+	if qreached.Bool() {
+		t.Errorf("should not have reached 2 quorum already")
+	}
+
+	d.AddNext(qvote, "b")
+	d.Tick()
+	if !qreached.Bool() {
+		t.Errorf("should have reached 2 quorum already")
+	}
+
+	d.AddNext(qvote, "b")
+	d.Tick()
+	if !qreached.Bool() {
+		t.Errorf("should have reached 2 quorum already")
+	}
+
+	d.AddNext(qvote, "c")
+	d.Tick()
+	if !qreached.Bool() {
+		t.Errorf("should stay reached at 2 quorum already")
+	}
 }
 
 func TestShortestPath(t *testing.T) {
