@@ -307,3 +307,15 @@ func (m *LMax) Int() int {
 func (m *LBool) Bool() bool {
 	return m.v
 }
+
+func NewLSetOne(d *D, v interface{}) *LSet { // Helper creator for a 1 item LSet.
+	s := d.NewLSet(reflect.TypeOf(v))
+	s.DirectAdd(v)
+	return s
+}
+
+func NewLBool(d *D, v bool) *LBool { // Helper creator for an initialized LBool.
+	s := d.NewLBool()
+	s.DirectAdd(v)
+	return s
+}

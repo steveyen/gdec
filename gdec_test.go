@@ -21,60 +21,60 @@ func TestReplicatedKV(t *testing.T) {
 	fmt.Printf("%#v\n", d)
 }
 
-func TestQuorum(t *testing.T) {
-	d := QuorumInit(NewD("quorumTest"), "")
+func TestTally(t *testing.T) {
+	d := TallyInit(NewD("tallyTest"), "")
 
-	qvote := d.Relations["QuorumVote"].(*LSet)
-	qneeded := d.Relations["QuorumNeeded"].(*LMax)
-	qreached := d.Relations["QuorumReached"].(*LBool)
+	tvote := d.Relations["TallyVote"].(*LSet)
+	tneed := d.Relations["TallyNeed"].(*LMax)
+	tdone := d.Relations["TallyDone"].(*LBool)
 
-	if qreached.Bool() {
-		t.Errorf("shouldn't have reached quorum already")
+	if tdone.Bool() {
+		t.Errorf("shouldn't have done tally already")
 	}
 	d.Tick()
-	if !qreached.Bool() {
-		t.Errorf("should have reached 0 quorum already")
+	if !tdone.Bool() {
+		t.Errorf("should have done 0 tally already")
 	}
 
-	if !qneeded.DirectAdd(2) {
-		t.Errorf("expected qneeded to change")
+	if !tneed.DirectAdd(2) {
+		t.Errorf("expected tneed to change")
 	}
-	if qneeded.Int() != 2 {
-		t.Errorf("expected qneeded to be 2")
+	if tneed.Int() != 2 {
+		t.Errorf("expected tneed to be 2")
 	}
 	d.Tick()
-	if qreached.Bool() {
-		t.Errorf("should not have reached 2 quorum already")
+	if tdone.Bool() {
+		t.Errorf("should not have done 2 tally already")
 	}
 
-	d.AddNext(qvote, "a")
+	d.AddNext(tvote, "a")
 	d.Tick()
-	if qreached.Bool() {
-		t.Errorf("should not have reached 2 quorum already")
+	if tdone.Bool() {
+		t.Errorf("should not have done 2 tally already")
 	}
 
-	d.AddNext(qvote, "a")
+	d.AddNext(tvote, "a")
 	d.Tick()
-	if qreached.Bool() {
-		t.Errorf("should not have reached 2 quorum already")
+	if tdone.Bool() {
+		t.Errorf("should not have done 2 tally already")
 	}
 
-	d.AddNext(qvote, "b")
+	d.AddNext(tvote, "b")
 	d.Tick()
-	if !qreached.Bool() {
-		t.Errorf("should have reached 2 quorum already")
+	if !tdone.Bool() {
+		t.Errorf("should have done 2 tally already")
 	}
 
-	d.AddNext(qvote, "b")
+	d.AddNext(tvote, "b")
 	d.Tick()
-	if !qreached.Bool() {
-		t.Errorf("should have reached 2 quorum already")
+	if !tdone.Bool() {
+		t.Errorf("should have done 2 tally already")
 	}
 
-	d.AddNext(qvote, "c")
+	d.AddNext(tvote, "c")
 	d.Tick()
-	if !qreached.Bool() {
-		t.Errorf("should stay reached at 2 quorum already")
+	if !tdone.Bool() {
+		t.Errorf("should stay done at 2 tally already")
 	}
 }
 

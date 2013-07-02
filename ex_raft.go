@@ -190,12 +190,10 @@ func RaftInit(d *D, prefix string) *D {
 		}).Into(nextState)
 
 	d.Join(currTerm, currState, rvoter,
-		func(currTerm *int, currState *int, rvoter *RaftVoteResponse) *LMapEntry {
+		func(currTerm *int, currState *int, r *RaftVoteResponse) *LMapEntry {
 			// Record the vote if we're still a candidate and in the same term.
-			if stateKind(*currState) == state_CANDIDATE && rvoter.Term == *currTerm {
-				granted := d.NewLBool()
-				granted.DirectAdd(rvoter.Granted)
-				return &LMapEntry{voteKey(rvoter.Term, rvoter.From), granted}
+			if stateKind(*currState) == state_CANDIDATE && r.Term == *currTerm {
+				return &LMapEntry{voteKey(r.Term, r.From), NewLBool(d, r.Granted)}
 			}
 			return nil
 		}).Into(tally)
