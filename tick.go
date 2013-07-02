@@ -121,7 +121,7 @@ func isNil(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
 		reflect.Ptr, reflect.Slice:
-		return v.IsNil()
+		return v.IsNil() // IsNil() panics if v is wrong kind.
 	}
 	return false
 }
