@@ -127,8 +127,8 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Timeouts.
 
-	// Move to candidate state, with a new term, self-vote, and alarm reset.
 	d.Join(alarm, currTerm, currState, func(alarm *bool, currTerm *int, currState *int) {
+		// Move to candidate state, with a new term, self-vote, and alarm reset.
 		if *alarm && stateKind(*currState) != state_LEADER {
 			d.Add(nextTerm, *currTerm+1)
 			d.Add(nextState, state_CANDIDATE)
@@ -171,18 +171,30 @@ func RaftInit(d *D, prefix string) *D {
 			return nil
 		}).IntoAsync(rvote)
 
-	// Candidate operations.
+	// Tally votes when we're a candidate.
 
 	d.Join(rvoter, func(rvoter *RaftVoteResponse) int { return rvoter.Term }).
 		Into(nextTerm)
 
 	d.Join(currTerm, currState, rvoter,
 		func(currTerm *int, currState *int, rvoter *RaftVoteResponse) int {
+			// If our term is stale, step down.
 			if stateKind(*currState) != state_FOLLOWER && rvoter.Term > *currTerm {
 				return state_STEP_DOWN
 			}
 			return stateKind(*currState)
 		}).Into(nextState)
+
+	d.Join(currTerm, currState, rvoter,
+		func(currTerm *int, currState *int, rvoter *RaftVoteResponse) *LMapEntry {
+			// Taly vote if we're still a candidate and in the same term.
+			if stateKind(*currState) == state_CANDIDATE && rvoter.Term == *currTerm {
+				granted := d.NewLBool()
+				granted.DirectAdd(rvoter.Granted)
+				return &LMapEntry{voteKey(rvoter.Term, rvoter.From), granted}
+			}
+			return nil
+		}).Into(tally)
 
 	// Incorporate next term and next state.
 
@@ -209,7 +221,5 @@ func voteKey(term int, addr string) string {
 }
 
 func tallyHasVoteFrom(tally *LMap, term int, addr string) bool {
-	voteKey := voteKey(term, addr)
-	voteVal := tally.At(voteKey)
-	return voteVal != nil && voteVal.(*LBool).Bool()
+	return tally.At(voteKey(term, addr)) != nil
 }
