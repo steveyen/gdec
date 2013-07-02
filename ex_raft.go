@@ -94,19 +94,19 @@ func RaftInit(d *D, prefix string) *D {
 	// currVote := d.DeclareLSet(prefix+"raftCurrVote", "addrString") // My vote.
 	nextVote := d.DeclareLSet(prefix+"raftNextVote", "addrString")
 
-	tally := d.DeclareLMap(prefix + "raftTally")                // Key is "term:addr", val is LBool.
-	yesVotes := Scratch(d.DeclareLMap(prefix + "raftYesVotes")) // Key is term, val is LSet.
-	wonTerm := Scratch(d.DeclareLSet(prefix+"raftWonTerm", 0))
+	tally := d.DeclareLMap(prefix + "raftTally")                  // Key: "term:addr", val: LBool.
+	yesVotes := d.Scratch(d.DeclareLMap(prefix + "raftYesVotes")) // Key: "term", val: LSet.
+	wonTerm := d.Scratch(d.DeclareLSet(prefix+"raftWonTerm", 0))
 
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
 
-	nextTerm := Scratch(d.DeclareLMax(prefix + "raftNextTerm"))
-	nextState := Scratch(d.DeclareLMax(prefix + "raftNextState"))
+	nextTerm := d.Scratch(d.DeclareLMax(prefix + "raftNextTerm"))
+	nextState := d.Scratch(d.DeclareLMax(prefix + "raftNextState"))
 
-	alarm := Scratch(d.DeclareLBool(prefix + "raftAlarm"))           // TODO: periodic.
-	resetAlarm := Scratch(d.DeclareLBool(prefix + "raftResetAlarm")) // TODO: periodic.
-	heartBeat := Scratch(d.DeclareLBool(prefix + "raftHeartBeat"))   // TODO: periodic.
+	alarm := d.Scratch(d.DeclareLBool(prefix + "raftAlarm"))           // TODO: periodic.
+	resetAlarm := d.Scratch(d.DeclareLBool(prefix + "raftResetAlarm")) // TODO: periodic.
+	heartBeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartBeat"))   // TODO: periodic.
 
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
 

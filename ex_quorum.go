@@ -11,8 +11,8 @@ type QuorumResult struct {
 
 func QuorumInit(d *D, prefix string,
 	quorumSize int, resultAddr string) *D {
-	qvote := d.DeclareChannel(prefix+"QuorumVote", QuorumVote{})
-	qresult := d.DeclareChannel(prefix+"QuorumResult", QuorumResult{})
+	qvote := d.Input(d.DeclareLSet(prefix+"QuorumVote", QuorumVote{}))
+	qresult := d.Output(d.DeclareLSet(prefix+"QuorumResult", QuorumResult{}))
 
 	qvotes := d.DeclareLSet(prefix+"quorumVotes", QuorumVote{})
 	qtally := d.DeclareLMax(prefix + "quorumTally")
