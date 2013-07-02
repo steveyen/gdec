@@ -92,7 +92,7 @@ func RaftInit(d *D, prefix string) *D {
 	// currVote := d.DeclareLSet(prefix+"raftCurrVote", "addrString") // My vote.
 	nextVote := d.DeclareLSet(prefix+"raftNextVote", "addrString")
 
-	tally := d.DeclareLMap(prefix+"raftTally") // Votes from others.
+	tally := d.DeclareLMap(prefix + "raftTally") // Votes from others.
 
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
@@ -169,7 +169,20 @@ func RaftInit(d *D, prefix string) *D {
 				}
 			}
 			return nil
-		}).Into(rvote)
+		}).IntoAsync(rvote)
+
+	// Candidate operations.
+
+	d.Join(rvoter, func(rvoter *RaftVoteResponse) int { return rvoter.Term }).
+		Into(nextTerm)
+
+	d.Join(currTerm, currState, rvoter,
+		func(currTerm *int, currState *int, rvoter *RaftVoteResponse) int {
+			if stateKind(*currState) != state_FOLLOWER && rvoter.Term > *currTerm {
+				return state_STEP_DOWN
+			}
+			return stateKind(*currState)
+		}).Into(nextState)
 
 	// Incorporate next term and next state.
 
