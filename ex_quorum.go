@@ -1,42 +1,18 @@
 package gdec
 
-type QuorumVote struct {
-	Addr  string `gdec:"key,addr"`
-	Voter string `gdec:"key"`
-}
+func QuorumInit(d *D, prefix string) *D {
+	qvote := d.Input(d.DeclareLSet(prefix+"QuorumVote", "voterString"))
+	qneeded := d.DeclareLMax(prefix+"QuorumNeeded")
+	qreached := d.Output(d.DeclareLBool(prefix+"QuorumReached"))
 
-type QuorumResult struct {
-	Addr string `gdec:"key,addr"`
-}
+	qtally := d.DeclareLSet(prefix+"quorumTally", "voterString")
 
-func QuorumInit(d *D, prefix string,
-	quorumSize int, resultAddr string) *D {
-	qvote := d.Input(d.DeclareLSet(prefix+"QuorumVote", QuorumVote{}))
-	qresult := d.Output(d.DeclareLSet(prefix+"QuorumResult", QuorumResult{}))
-
-	qvotes := d.DeclareLSet(prefix+"quorumVotes", QuorumVote{})
-	qtally := d.DeclareLMax(prefix + "quorumTally")
-	qreached := d.DeclareLBool(prefix + "quorumReached")
-
-	d.Join(qvote).
-		Into(qvotes)
-
-	d.Join(func() int { return qvotes.Size() }).
-		Into(qtally)
-
-	d.Join(func() bool { return qtally.Int() >= quorumSize }).
-		Into(qreached)
-
-	d.Join(func() *QuorumResult {
-		if qreached.Bool() {
-			return &QuorumResult{resultAddr}
-		}
-		return nil
-	}).IntoAsync(qresult)
+	d.Join(qvote).Into(qtally)
+	d.Join(func() bool { return qtally.Size() >= qneeded.Int() }).Into(qreached)
 
 	return d
 }
 
 func init() {
-	QuorumInit(NewD(""), "", 0, "")
+	QuorumInit(NewD(""), "")
 }

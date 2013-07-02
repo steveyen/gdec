@@ -22,7 +22,7 @@ func TestReplicatedKV(t *testing.T) {
 }
 
 func TestQuorum(t *testing.T) {
-	d := QuorumInit(NewD(""), "", 5, "")
+	d := QuorumInit(NewD(""), "")
 	fmt.Printf("%#v\n", d)
 }
 
