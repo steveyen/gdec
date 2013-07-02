@@ -78,13 +78,16 @@ func RaftInit(d *D, prefix string) *D {
 	// votedForInCurrTerm := d.DeclareLSet(prefix + "raftVotedForInCurrTerm", "addrString")
 	// votedForInCurrTick := d.DeclareLSet(prefix + "raftVotedForInCurrTick", "addrString")
 
+	nextVote := d.DeclareLSet(prefix+"raftNextVote", "addrString")
+
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
 
 	nextTerm := Scratch(d.DeclareLMax(prefix + "raftNextTerm"))
 	nextState := Scratch(d.DeclareLMax(prefix + "raftNextState"))
 
-	alarm := Scratch(d.DeclareLBool(prefix + "raftAlarm")) // TODO: periodic.
+	alarm := Scratch(d.DeclareLBool(prefix + "raftAlarm"))           // TODO: periodic.
+	resetAlarm := Scratch(d.DeclareLBool(prefix + "raftResetAlarm")) // TODO: periodic.
 
 	d.Join(currTerm).
 		Into(nextTerm)
@@ -124,6 +127,21 @@ func RaftInit(d *D, prefix string) *D {
 			}
 			return stateKind(*currState)
 		}).Into(nextState)
+
+	// Vote for ourselves.
+	d.Join(alarm, currState,
+		func(alarm *bool, currState *int) string {
+			if *alarm && stateKind(*currState) != state_LEADER {
+				return d.Addr
+			}
+			return ""
+		}).Into(nextVote)
+
+	// Reset the alarm.
+	d.Join(alarm, currState,
+		func(alarm *bool, currState *int) bool {
+			return *alarm && stateKind(*currState) != state_LEADER
+		}).Into(resetAlarm)
 
 	d.Join(rvote, currTerm,
 		func(rvote *RaftVoteRequest, currTerm *int) *RaftVoteResponse {

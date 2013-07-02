@@ -11,6 +11,7 @@ type D struct {
 	Joins     []*joinDeclaration
 	ticks     int64
 	next      []relationChange
+	immediate []relationChange
 }
 
 type Relation interface {
@@ -38,6 +39,7 @@ func NewD(addr string) *D {
 		Relations: make(map[string]Relation),
 		Joins:     []*joinDeclaration{},
 		next:      []relationChange{},
+		immediate: []relationChange{},
 	}
 }
 
