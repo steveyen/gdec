@@ -41,16 +41,15 @@ type RaftEntry struct {
 }
 
 const (
-	// Lowest bits of a state are the 'kind' of a state,
-	// where ordering matters for LMax precedence.
+	// The 'kind' of a state are in the lowest bits.
 	state_FOLLOWER  = 0
-	state_LEADER    = 1
-	state_CANDIDATE = 2
+	state_CANDIDATE = 1
+	state_LEADER    = 2
 	state_STEP_DOWN = 3 // Must be largest for LMax precedence.
 	state_SAME      = 0 // Used to denote no change to state kind.
 
 	state_KIND_MASK    = 0x0000000f
-	state_VERSION_MASK = 0xfffffff0
+	state_VERSION_MASK = 0xfffffff0 // Highest bits are version.
 	state_VERSION_NEXT = 0x00000010
 )
 
@@ -91,31 +90,33 @@ func RaftInit(d *D, prefix string) *D {
 	d.Join(rvote, func(r *RaftVoteRequest) int { return r.Term }).
 		IntoAsync(nextTerm)
 
-	d.Join(rvote, currTerm, currState, func(r *RaftVoteRequest, term, state *int) int {
-		if r.Term > *term {
-			return stateKind(*state) + state_STEP_DOWN
-		}
-		return state_SAME
-	}).Into(nextState)
+	d.Join(rvote, currTerm, currState,
+		func(rvote *RaftVoteRequest, currTerm *int, currState *int) int {
+			if rvote.Term > *currTerm {
+				return state_STEP_DOWN
+			}
+			return state_SAME
+		}).Into(nextState)
 
-	d.Join(currState, nextState, func(curr, next *int) int {
-		if stateKind(*next) == state_STEP_DOWN {
-			return stateVersionNext(*curr)
+	d.Join(currState, nextState, func(currState *int, nextState *int) int {
+		if *nextState == state_STEP_DOWN {
+			return stateVersionNext(*currState) + state_FOLLOWER
 		}
-		return state_SAME
+		return stateVersion(*currState) + stateKind(*nextState)
 	}).IntoAsync(currState)
 
-	d.Join(rvote, currTerm, func(r *RaftVoteRequest, term *int) *RaftVoteResponse {
-		if r.Term < *term {
-			return &RaftVoteResponse{
-				To:      r.From,
-				From:    r.To,
-				Term:    *term,
-				Granted: false,
+	d.Join(rvote, currTerm,
+		func(rvote *RaftVoteRequest, currTerm *int) *RaftVoteResponse {
+			if rvote.Term < *currTerm {
+				return &RaftVoteResponse{
+					To:      rvote.From,
+					From:    rvote.To,
+					Term:    *currTerm,
+					Granted: false,
+				}
 			}
-		}
-		return nil // TODO.
-	}).IntoAsync(rvoter)
+			return nil // TODO.
+		}).IntoAsync(rvoter)
 
 	// TODO.
 
