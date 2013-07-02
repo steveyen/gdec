@@ -100,7 +100,7 @@ func (d *D) Join(vars ...interface{}) *joinDeclaration {
 			rt := reflect.PtrTo(x.TupleType())
 			if rt != mft.In(i) {
 				panic(fmt.Sprintf("selectWhereFunc param #%v type"+
-					"%v does not match, expected: %v, selectWhereFunc: %v",
+					" %v does not match, expected: %v, selectWhereFunc: %v",
 					i, mft.In(i), rt, mft))
 			}
 		}

@@ -40,6 +40,12 @@ type RaftEntry struct {
 	Entry string // Command for state machine.
 }
 
+type RaftLogState struct {
+	LastTerm        int
+	LastIndex       int
+	LastCommitIndex int
+}
+
 const (
 	// The 'kind' of a state are in the lowest bits.
 	state_FOLLOWER  = 0
@@ -73,12 +79,14 @@ func RaftInit(d *D, prefix string) *D {
 	// rappends := d.Relations[prefix+"RaftAppendEntryRequest"]
 	// rappendresponses := d.Relations[prefix+"RaftAppendEntryResponse"]
 
-	// members := d.DeclareLSet(prefix + "raftMember", "addrString")
+	member := d.DeclareLSet(prefix+"raftMember", "addrString")
+
 	// votedFor := d.DeclareLSet(prefix + "raftVotedFor", "addrString")
 	// votedForInCurrTerm := d.DeclareLSet(prefix + "raftVotedForInCurrTerm", "addrString")
 	// votedForInCurrTick := d.DeclareLSet(prefix + "raftVotedForInCurrTick", "addrString")
 
 	nextVote := d.DeclareLSet(prefix+"raftNextVote", "addrString")
+	vote := d.DeclareLMap(prefix + "raftVote")
 
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
@@ -88,6 +96,9 @@ func RaftInit(d *D, prefix string) *D {
 
 	alarm := Scratch(d.DeclareLBool(prefix + "raftAlarm"))           // TODO: periodic.
 	resetAlarm := Scratch(d.DeclareLBool(prefix + "raftResetAlarm")) // TODO: periodic.
+	heartBeat := Scratch(d.DeclareLBool(prefix + "raftHeartBeat"))   // TODO: periodic.
+
+	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
 
 	d.Join(currTerm).
 		Into(nextTerm)
@@ -137,6 +148,22 @@ func RaftInit(d *D, prefix string) *D {
 			}
 			return nil // TODO.
 		}).IntoAsync(rvoter)
+
+	// Send vote requests.
+
+	d.Join(heartBeat, member, currState, currTerm, logState,
+		func(h *bool, mAddr *string, s *int, t *int, l *RaftLogState) *RaftVoteRequest {
+			if stateKind(*s) == state_CANDIDATE && vote.At("TODO:*t,*mAddr") == nil {
+				return &RaftVoteRequest{
+					To:           *mAddr,
+					From:         d.Addr,
+					Term:         *t,
+					LastLogTerm:  l.LastTerm,
+					LastLogIndex: l.LastIndex,
+				}
+			}
+			return nil
+		}).Into(rvote)
 
 	// Incorporate next term and next state.
 
