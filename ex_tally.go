@@ -23,7 +23,7 @@ type MultiTallyVote struct {
 	Voter string
 }
 
-// Multiple tally/counters, when there are multiple, in-flight tally's.
+// Multiple tally/counters, when there are multiple, in-flight races (or contests).
 func MultiTallyInit(d *D, prefix string) *D {
 	tvote := d.Input(d.DeclareLSet(prefix+"MultiTallyVote", MultiTallyVote{}))
 	tneed := d.DeclareLMax(prefix + "MultiTallyNeed")
