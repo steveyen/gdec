@@ -110,38 +110,21 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Timeouts.
 
-	// Transition to candidate state, with a new term.
+	// Transition to candidate state, with a new term, with a self-vote, resetting the alarm.
 	d.Join(alarm, currTerm, currState,
-		func(alarm *bool, currTerm *int, currState *int) int {
+		func(alarm *bool, currTerm *int, currState *int) {
 			if *alarm && stateKind(*currState) != state_LEADER {
-				return *currTerm + 1
+				d.Add(nextTerm, *currTerm+1)
+				d.Add(nextState, state_CANDIDATE)
+				d.Add(nextVote, d.Addr)
+				d.Add(resetAlarm, true)
+				return
 			}
-			return *currTerm
-		}).Into(nextTerm)
-
-	// Transition to candidate state.
-	d.Join(alarm, currState,
-		func(alarm *bool, currState *int) int {
-			if *alarm && stateKind(*currState) != state_LEADER {
-				return state_CANDIDATE
-			}
-			return stateKind(*currState)
-		}).Into(nextState)
-
-	// Vote for ourselves.
-	d.Join(alarm, currState,
-		func(alarm *bool, currState *int) string {
-			if *alarm && stateKind(*currState) != state_LEADER {
-				return d.Addr
-			}
-			return ""
-		}).Into(nextVote)
-
-	// Reset the alarm.
-	d.Join(alarm, currState,
-		func(alarm *bool, currState *int) bool {
-			return *alarm && stateKind(*currState) != state_LEADER
-		}).Into(resetAlarm)
+			d.Add(nextTerm, *currTerm)
+			d.Add(nextState, stateKind(*currState))
+			d.Add(nextVote, "")
+			d.Add(resetAlarm, false)
+		})
 
 	d.Join(rvote, currTerm,
 		func(rvote *RaftVoteRequest, currTerm *int) *RaftVoteResponse {

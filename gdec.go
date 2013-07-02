@@ -92,10 +92,6 @@ func (d *D) Join(vars ...interface{}) *joinDeclaration {
 
 	if selectWhereFunc != nil {
 		mft := reflect.TypeOf(selectWhereFunc)
-		if mft.NumOut() != 1 {
-			panic(fmt.Sprintf("selectWhereFunc should return 1 value"+
-				", selectWhereFunc: %v", mft))
-		}
 		if mft.NumIn() != joinNum {
 			panic(fmt.Sprintf("selectWhereFunc should take %v args"+
 				", selectWhereFunc: %v", joinNum, mft))
@@ -121,6 +117,14 @@ func (d *D) JoinFlat(vars ...interface{}) *joinDeclaration {
 	jd := d.Join(vars...)
 	jd.selectWhereFlat = true
 	return jd
+}
+
+func (d *D) Add(r Relation, v interface{}) {
+	d.immediate = append(d.immediate, relationChange{r, v, true})
+}
+
+func (d *D) Merge(r Relation, v interface{}) {
+	d.immediate = append(d.immediate, relationChange{r, v, false})
 }
 
 type joinDeclaration struct {
