@@ -2,6 +2,8 @@ package gdec
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
 )
 
 // Invoked by candidates to gather votes.
@@ -92,8 +94,9 @@ func RaftInit(d *D, prefix string) *D {
 	// currVote := d.DeclareLSet(prefix+"raftCurrVote", "addrString") // My vote.
 	nextVote := d.DeclareLSet(prefix+"raftNextVote", "addrString")
 
-	tally := d.DeclareLMap(prefix + "raftTally") // Votes from others.
-	wonTerm := d.DeclareLSet(prefix+"raftWonTerm", 0)
+	tally := d.DeclareLMap(prefix + "raftTally")                // Key is "term:addr", val is LBool.
+	yesVotes := Scratch(d.DeclareLMap(prefix + "raftYesVotes")) // Key is term, val is LSet.
+	wonTerm := Scratch(d.DeclareLSet(prefix+"raftWonTerm", 0))
 
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
@@ -188,7 +191,7 @@ func RaftInit(d *D, prefix string) *D {
 
 	d.Join(currTerm, currState, rvoter,
 		func(currTerm *int, currState *int, rvoter *RaftVoteResponse) *LMapEntry {
-			// Taly vote if we're still a candidate and in the same term.
+			// Record the vote if we're still a candidate and in the same term.
 			if stateKind(*currState) == state_CANDIDATE && rvoter.Term == *currTerm {
 				granted := d.NewLBool()
 				granted.DirectAdd(rvoter.Granted)
@@ -196,6 +199,14 @@ func RaftInit(d *D, prefix string) *D {
 			}
 			return nil
 		}).Into(tally)
+
+	d.Join(tally, func(e *LMapEntry) *LMapEntry {
+		term := strings.Split(e.Key, ":")[0]
+		if e.Val.(*LBool).Bool() {
+			return &LMapEntry{term, d.NewLSet(reflect.TypeOf(0))}
+		}
+		return nil
+	}).Into(yesVotes)
 
 	d.Join(wonTerm, currTerm, currState,
 		func(wonTerm *int, currTerm *int, currState *int) int {
@@ -226,7 +237,7 @@ func init() {
 }
 
 func voteKey(term int, addr string) string {
-	return fmt.Sprintf("%d%s", term, addr)
+	return fmt.Sprintf("%d:%s", term, addr)
 }
 
 func tallyHasVoteFrom(tally *LMap, term int, addr string) bool {

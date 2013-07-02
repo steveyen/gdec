@@ -123,8 +123,16 @@ func (d *D) Add(r Relation, v interface{}) {
 	d.immediate = append(d.immediate, relationChange{r, v, true})
 }
 
+func (d *D) AddNext(r Relation, v interface{}) {
+	d.next = append(d.next, relationChange{r, v, true})
+}
+
 func (d *D) Merge(r Relation, v interface{}) {
 	d.immediate = append(d.immediate, relationChange{r, v, false})
+}
+
+func (d *D) MergeNext(r Relation, v interface{}) {
+	d.next = append(d.next, relationChange{r, v, false})
 }
 
 type joinDeclaration struct {
