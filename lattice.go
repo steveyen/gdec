@@ -142,7 +142,7 @@ func (m *LMap) DirectAdd(v interface{}) bool {
 	if v == nil {
 		panic("unexpected nil during LMap.DirectAdd")
 	}
-	e := v.(LMapEntry)
+	e := v.(*LMapEntry)
 	o, _ := m.m[e.Key]
 	if o != nil {
 		changed := o.DirectMerge(e.Val.(Relation))
@@ -187,15 +187,19 @@ func (m *LBool) DirectAdd(v interface{}) bool {
 }
 
 func (m *LMap) DirectMerge(rel Relation) bool {
-	panic("LMap.Merge unimplemented")
-	return false
+	changed := false
+	r := rel.(*LMap)
+	for k, v := range r.m {
+		changed = m.DirectAdd(&LMapEntry{k, v}) || changed
+	}
+	return changed
 }
 
 func (m *LSet) DirectMerge(rel Relation) bool {
 	changed := false
 	r := rel.(*LSet)
 	for _, v := range r.m {
-		changed = changed || m.DirectAdd(v)
+		changed = m.DirectAdd(v) || changed
 	}
 	return changed
 }
@@ -209,8 +213,14 @@ func (m *LBool) DirectMerge(rel Relation) bool {
 }
 
 func (m *LMap) Scan() chan interface{} {
-	panic("LMap.Scan unimplemented")
-	return nil
+	ch := make(chan interface{})
+	go func() {
+		for k, v := range m.m {
+			ch <- &LMapEntry{k, v}
+		}
+		close(ch)
+	}()
+	return ch
 }
 
 func (m *LSet) Scan() chan interface{} {
