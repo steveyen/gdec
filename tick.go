@@ -49,7 +49,7 @@ func (jd *joinDeclaration) executeJoinInto(next, immediate []relationChange) (
 	join := make([]interface{}, numSources)
 	values := make([]reflect.Value, numSources)
 
-	selectWhere := func(results []relationChange) []relationChange {
+	selectWhere := func() *relationChange {
 		if jd.selectWhereFunc != nil {
 			for i, x := range join {
 				values[i] = reflect.ValueOf(x)
@@ -63,23 +63,20 @@ func (jd *joinDeclaration) executeJoinInto(next, immediate []relationChange) (
 				out0 := out[0].Interface()
 				if out0 != nil {
 					if jd.selectWhereFlat {
-						return append(results,
-							relationChange{jd.into, out0, false})
+						return &relationChange{jd.into, out0, false}
 					} else {
-						return append(results,
-							relationChange{jd.into, out0, true})
+						return &relationChange{jd.into, out0, true}
 					}
 				}
 			}
 		} else if len(join) == 1 {
 			if join[0] != nil {
-				return append(results,
-					relationChange{jd.into, join[0], true})
+				return &relationChange{jd.into, join[0], true}
 			}
 		} else {
 			panic("could not send join output into receiver")
 		}
-		return results
+		return nil
 	}
 
 	var joiner func(int)
@@ -93,10 +90,13 @@ func (jd *joinDeclaration) executeJoinInto(next, immediate []relationChange) (
 				joiner(pos + 1)
 			}
 		} else {
-			if jd.async {
-				next = selectWhere(next)
-			} else {
-				immediate = selectWhere(immediate)
+			res := selectWhere()
+			if res != nil {
+				if jd.async {
+					next = append(next, *res)
+				} else {
+					immediate = append(immediate, *res)
+				}
 			}
 		}
 	}
