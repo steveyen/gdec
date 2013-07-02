@@ -1,5 +1,9 @@
 package gdec
 
+import (
+	"fmt"
+)
+
 // Invoked by candidates to gather votes.
 type RaftVoteRequest struct {
 	To           string
@@ -153,7 +157,8 @@ func RaftInit(d *D, prefix string) *D {
 
 	d.Join(heartBeat, member, currState, currTerm, logState,
 		func(h *bool, mAddr *string, s *int, t *int, l *RaftLogState) *RaftVoteRequest {
-			if stateKind(*s) == state_CANDIDATE && vote.At("TODO:*t,*mAddr") == nil {
+			voteKey := voteKey(*t, *mAddr)
+			if stateKind(*s) == state_CANDIDATE && vote.At(voteKey) == nil {
 				return &RaftVoteRequest{
 					To:           *mAddr,
 					From:         d.Addr,
@@ -183,4 +188,8 @@ func RaftInit(d *D, prefix string) *D {
 
 func init() {
 	RaftInit(NewD(""), "")
+}
+
+func voteKey(term int, addr string) string {
+	return fmt.Sprintf("%d%s", term, addr)
 }
