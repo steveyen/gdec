@@ -101,9 +101,9 @@ func RaftInit(d *D, prefix string) *D {
 	nextTerm := d.Scratch(d.DeclareLMax(prefix + "raftNextTerm"))
 	nextState := d.Scratch(d.DeclareLMax(prefix + "raftNextState"))
 
-	alarm := d.Scratch(d.DeclareLBool(prefix + "raftAlarm"))           // TODO: periodic.
-	resetAlarm := d.Scratch(d.DeclareLBool(prefix + "raftResetAlarm")) // TODO: periodic.
-	heartBeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartBeat"))   // TODO: periodic.
+	alarm := d.Scratch(d.DeclareLBool(prefix + "raftAlarm")) // TODO: periodic.
+	// resetAlarm := d.Scratch(d.DeclareLBool(prefix + "raftResetAlarm")) // TODO: periodic.
+	heartBeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartBeat")) // TODO: periodic.
 
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
 
@@ -138,13 +138,10 @@ func RaftInit(d *D, prefix string) *D {
 		if *alarm && stateKind(*s) != state_LEADER {
 			d.Add(nextTerm, *t+1)
 			d.Add(nextState, state_CANDIDATE)
-			d.Add(resetAlarm, true)
 			d.Add(tallyVote, &MultiTallyVote{termToRace(*t + 1), d.Addr})
+			// TODO: d.Add(resetAlarm, true)
 			return
 		}
-		d.Add(nextTerm, *t)
-		d.Add(nextState, stateKind(*s))
-		d.Add(resetAlarm, false)
 	})
 
 	d.Join(rvote, currTerm,
