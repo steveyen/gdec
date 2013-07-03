@@ -255,7 +255,7 @@ func RaftInit(d *D, prefix string) *D {
 				Term:    *t,
 				Granted: granted,
 			}
-		}).IntoAsync(rvoter)
+		}).IntoAsync(rvoter) // TODO: Reset timer if we grant a vote to a candidate.
 
 	d.Join(bestCandidate, currTerm,
 		func(bestCandidate *string, currTerm *int) *RaftVote {
