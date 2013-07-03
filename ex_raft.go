@@ -23,8 +23,8 @@ type RaftVoteResponse struct {
 // Invoked by leaders to replicate log entries.
 type RaftAppendEntryRequest struct {
 	To           string
-	LeaderTerm   int    // Leader's term.
-	LeaderAddr   string // So follower can redirect clients.
+	From         string // Leader's addr, allowing follower to redirect clients.
+	Term         int    // Leader's term.
 	PrevLogTerm  int    // Term of log entry immediately preceding this one.
 	PrevLogIndex int    // Index of log entry immediately preceding this one.
 	Entry        string // Log entry to store (empty for heartbeat).
@@ -86,8 +86,8 @@ func RaftInit(d *D, prefix string) *D {
 	rvote := d.Relations[prefix+"RaftVoteRequest"]
 	rvoter := d.Relations[prefix+"RaftVoteResponse"]
 
-	// rappends := d.Relations[prefix+"RaftAppendEntryRequest"]
-	// rappendresponses := d.Relations[prefix+"RaftAppendEntryResponse"]
+	rappend := d.Relations[prefix+"RaftAppendEntryRequest"]
+	// rappendr := d.Relations[prefix+"RaftAppendEntryResponse"]
 
 	member := d.DeclareLSet(prefix+"raftMember", "addrString")
 
@@ -166,8 +166,8 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Send vote requests.
 
-	d.Join(heartBeat, member, currState, currTerm, logState,
-		func(h *bool, a *string, s *int, t *int, l *RaftLogState) *RaftVoteRequest {
+	d.Join(heartBeat, member, currTerm, currState, logState,
+		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftVoteRequest {
 			if stateKind(*s) == state_CANDIDATE &&
 				!MultiTallyHasVoteFrom(d, prefix+"tally/", termToRace(*t), *a) {
 				return &RaftVoteRequest{
@@ -265,6 +265,24 @@ func RaftInit(d *D, prefix string) *D {
 			}
 			return nil
 		}).IntoAsync(votedFor)
+
+	// Send heartbeats.
+
+	d.Join(heartBeat, member, currTerm, currState, logState,
+		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftAppendEntryRequest {
+			if stateKind(*s) == state_LEADER {
+				return &RaftAppendEntryRequest{
+					To:           *a,
+					From:         d.Addr,
+					Term:         *t,
+					PrevLogTerm:  l.LastTerm,
+					PrevLogIndex: l.LastIndex,
+					Entry:        "",
+					CommitIndex:  l.LastCommitIndex,
+				}
+			}
+			return nil
+		}).IntoAsync(rappend)
 
 	// Incorporate next term and next state.
 
