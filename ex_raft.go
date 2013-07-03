@@ -111,6 +111,8 @@ func RaftInit(d *D, prefix string) *D {
 
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
 
+	potentialCandidates := d.Scratch(d.DeclareLSet(prefix+"raftPotentialCandidates", RaftVoteRequest{}))
+
 	d.Join(func() int { return member.Size() / 2 }).
 		Into(tallyNeed)
 
@@ -224,6 +226,16 @@ func RaftInit(d *D, prefix string) *D {
 			}
 			return nil
 		}).Into(votedForCurrTerm)
+
+	d.Join(rvote, logState,
+		func(rvote *RaftVoteRequest, logState *RaftLogState) *RaftVoteRequest {
+			// Potential candidate only if candidate's log is >= our log.
+			if (rvote.LastLogTerm > logState.LastTerm) ||
+				(rvote.LastLogTerm == logState.LastTerm && rvote.LastLogIndex >= logState.LastIndex) {
+				return rvote
+			}
+			return nil
+		}).Into(potentialCandidates)
 
 	// Incorporate next term and next state.
 
