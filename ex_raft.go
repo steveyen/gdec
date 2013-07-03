@@ -90,9 +90,6 @@ func RaftInit(d *D, prefix string) *D {
 	// votedForInCurrTerm := d.DeclareLSet(prefix + "raftVotedForInCurrTerm", "addrString")
 	// votedForInCurrTick := d.DeclareLSet(prefix + "raftVotedForInCurrTick", "addrString")
 
-	// currVote := d.DeclareLSet(prefix+"raftCurrVote", "addrString") // My vote.
-	nextVote := d.DeclareLSet(prefix+"raftNextVote", "addrString")
-
 	MultiTallyInit(d, prefix+"tally/")
 	tallyVote := d.Relations[prefix+"tally/MultiTallyVote"].(*LSet)
 	tallyNeed := d.Relations[prefix+"tally/MultiTallyNeed"].(*LMax)
@@ -141,13 +138,12 @@ func RaftInit(d *D, prefix string) *D {
 		if *alarm && stateKind(*s) != state_LEADER {
 			d.Add(nextTerm, *t+1)
 			d.Add(nextState, state_CANDIDATE)
-			d.Add(nextVote, d.Addr) // TODO.
 			d.Add(resetAlarm, true)
+			d.Add(tallyVote, &MultiTallyVote{termToRace(*t + 1), d.Addr})
 			return
 		}
 		d.Add(nextTerm, *t)
 		d.Add(nextState, stateKind(*s))
-		d.Add(nextVote, "") // TODO.
 		d.Add(resetAlarm, false)
 	})
 
@@ -205,12 +201,14 @@ func RaftInit(d *D, prefix string) *D {
 			return nil
 		}).Into(tallyVote)
 
-	d.Join(currTerm, currState, tallyDone,
-		func(currTerm *int, currState *int, tallyDone *LMapEntry) int {
+	d.Join(currTerm, currState,
+		func(currTerm *int, currState *int) int {
 			// Become leader if we won the race.
-			if stateKind(*currState) == state_CANDIDATE &&
-				tallyDone.Key == termToRace(*currTerm) {
-				return state_LEADER
+			if stateKind(*currState) == state_CANDIDATE {
+				won := tallyDone.At(termToRace(*currTerm)).(*LBool)
+				if won != nil && won.Bool() {
+					return state_LEADER
+				}
 			}
 			return stateKind(*currState)
 		}).Into(nextState)
