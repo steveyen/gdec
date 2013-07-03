@@ -105,7 +105,9 @@ func RaftInit(d *D, prefix string) *D {
 	nextTerm := d.Scratch(d.DeclareLMax(prefix + "raftNextTerm"))
 	nextState := d.Scratch(d.DeclareLMax(prefix + "raftNextState"))
 
-	alarm := d.Scratch(d.DeclareLBool(prefix + "raftAlarm"))         // TODO: periodic.
+	alarm := d.Scratch(d.DeclareLBool(prefix + "raftAlarm"))           // TODO: periodic.
+	alarmReset := d.Scratch(d.DeclareLBool(prefix + "raftAlarmReset")) // TODO: periodic.
+
 	heartbeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartbeat")) // TODO: periodic.
 
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
@@ -299,6 +301,13 @@ func RaftInit(d *D, prefix string) *D {
 			}
 			return stateKind(*currState)
 		}).Into(nextState)
+
+	d.Join(rappend, currTerm,
+		func(rappend *RaftAppendEntryRequest, currTerm *int) bool {
+			// Reset alarm if term is current or our term is stale.
+			// TODO: Random alarm timeout.
+			return rappend.Term >= *currTerm
+		}).Into(alarmReset)
 
 	// Incorporate next term and next state.
 
