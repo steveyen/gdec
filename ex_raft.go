@@ -105,13 +105,13 @@ func RaftInit(d *D, prefix string) *D {
 	nextTerm := d.Scratch(d.DeclareLMax(prefix + "raftNextTerm"))
 	nextState := d.Scratch(d.DeclareLMax(prefix + "raftNextState"))
 
-	alarm := d.Scratch(d.DeclareLBool(prefix + "raftAlarm")) // TODO: periodic.
-	// resetAlarm := d.Scratch(d.DeclareLBool(prefix + "raftResetAlarm")) // TODO: periodic.
+	alarm := d.Scratch(d.DeclareLBool(prefix + "raftAlarm"))         // TODO: periodic.
 	heartBeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartBeat")) // TODO: periodic.
 
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
 
-	potentialCandidate := d.Scratch(d.DeclareLSet(prefix+"raftPotentialCandidate", RaftVoteRequest{}))
+	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteRequest{}))
+	bestCandidate := d.Scratch(d.DeclareLMaxString(prefix + "raftBestCandidate"))
 
 	d.Join(func() int { return member.Size() / 2 }).
 		Into(tallyNeed)
@@ -229,16 +229,31 @@ func RaftInit(d *D, prefix string) *D {
 
 	d.Join(rvote, logState,
 		func(rvote *RaftVoteRequest, logState *RaftLogState) *RaftVoteRequest {
-			// Potential candidate only if candidate's log is >= our log.
-			if (rvote.LastLogTerm > logState.LastTerm) ||
-				(rvote.LastLogTerm == logState.LastTerm && rvote.LastLogIndex >= logState.LastIndex) {
+			// Good candidate only if candidate's log is at or beyond our log.
+			if rvote.LastLogTerm > logState.LastTerm {
+				return rvote
+			}
+			if rvote.LastLogTerm == logState.LastTerm &&
+				rvote.LastLogIndex >= logState.LastIndex {
 				return rvote
 			}
 			return nil
-		}).Into(potentialCandidate)
+		}).Into(goodCandidate)
 
-	d.Join(rvote, potentialCandidate, currTerm,
-		func(rvote *RaftVoteRequest, potentialCandidate *RaftVoteRequest, currTerm *int) *RaftVoteResponse {
+	d.Join(goodCandidate, func(g *RaftVoteRequest) string { return g.From }).
+		Into(bestCandidate) // Not the greatest best function, but its stable.
+
+	d.Join(rvote, bestCandidate, currTerm,
+		func(rvote *RaftVoteRequest, bestCandidate *string, currTerm *int) *RaftVoteResponse {
+			granted :=
+				(votedForInCurrTerm.(*LSet).Size() == 0 && rvote.From == *bestCandidate) ||
+					(votedForInCurrTerm.(*LSet).Contains(rvote.From))
+			return &RaftVoteResponse{
+				To:      rvote.From,
+				From:    rvote.To,
+				Term:    rvote.Term,
+				Granted: granted,
+			}
 			return nil // TODO.
 		}).IntoAsync(rvoter)
 
