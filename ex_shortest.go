@@ -25,12 +25,7 @@ func ShortestPathInit(d *D, prefix string) *D {
 		if link.To != path.From {
 			return nil
 		}
-		return &ShortestPath{
-			From: link.From,
-			To:   path.To,
-			Next: link.To,
-			Cost: link.Cost + path.Cost,
-		}
+		return &ShortestPath{link.From, path.To, link.To, link.Cost + path.Cost}
 	}).Into(paths)
 
 	return d
