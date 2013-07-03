@@ -92,7 +92,7 @@ func RaftInit(d *D, prefix string) *D {
 	member := d.DeclareLSet(prefix+"raftMember", "addrString")
 
 	votedFor := d.DeclareLSet(prefix+"raftVotedFor", RaftVote{})
-	votedForCurrTerm := d.Scratch(d.DeclareLSet(prefix+"raftVotedForCurrTerm", "addrString"))
+	votedForInCurrTerm := d.Scratch(d.DeclareLSet(prefix+"raftVotedForInCurrTerm", "addrString"))
 
 	MultiTallyInit(d, prefix+"tally/")
 	tallyVote := d.Relations[prefix+"tally/MultiTallyVote"].(*LSet)
@@ -225,7 +225,7 @@ func RaftInit(d *D, prefix string) *D {
 				return &votedFor.Candidate
 			}
 			return nil
-		}).Into(votedForCurrTerm)
+		}).Into(votedForInCurrTerm)
 
 	d.Join(rvote, logState,
 		func(rvote *RaftVoteRequest, logState *RaftLogState) *RaftVoteRequest {
