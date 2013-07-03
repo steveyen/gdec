@@ -32,11 +32,11 @@ type RaftAppendEntryRequest struct {
 }
 
 type RaftAppendEntryResponse struct {
-	To          string
-	From        string
-	Term        int  // Current term, for leader to update itself.
-	Success     bool // True if had entry matching PrevLogIndex/Term.
-	CommitIndex int
+	To      string
+	From    string
+	Term    int  // Current term, for leader to update itself.
+	Success bool // True if had entry matching PrevLogIndex/Term.
+	Index   int
 }
 
 type RaftVote struct {
@@ -87,7 +87,7 @@ func RaftInit(d *D, prefix string) *D {
 	rvoter := d.Relations[prefix+"RaftVoteResponse"]
 
 	rappend := d.Relations[prefix+"RaftAppendEntryRequest"]
-	// rappendr := d.Relations[prefix+"RaftAppendEntryResponse"]
+	rappendr := d.Relations[prefix+"RaftAppendEntryResponse"]
 
 	member := d.DeclareLSet(prefix+"raftMember", "addrString")
 
@@ -308,6 +308,22 @@ func RaftInit(d *D, prefix string) *D {
 			// TODO: Random alarm timeout.
 			return rappend.Term >= *currTerm
 		}).Into(alarmReset)
+
+	d.Join(rappend, currTerm, logState,
+		func(rappend *RaftAppendEntryRequest, currTerm *int,
+			logState *RaftLogState) *RaftAppendEntryResponse {
+			// Fail response if previous entry doesn't exist in our log.
+			if rappend.PrevLogIndex > logState.LastIndex {
+				return &RaftAppendEntryResponse{
+					To:      rappend.From,
+					From:    rappend.To,
+					Term:    *currTerm,
+					Success: false,
+					Index:   rappend.PrevLogIndex,
+				}
+			}
+			return nil
+		}).IntoAsync(rappendr)
 
 	// Incorporate next term and next state.
 
