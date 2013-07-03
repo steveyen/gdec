@@ -39,6 +39,13 @@ type LMax struct {
 	scratch bool
 }
 
+type LMaxString struct {
+	name    string
+	d       *D
+	v       string
+	scratch bool
+}
+
 type LBool struct {
 	name    string
 	d       *D
@@ -64,6 +71,12 @@ func (d *D) DeclareLMax(name string) *LMax {
 	return d.DeclareRelation(name, m).(*LMax)
 }
 
+func (d *D) DeclareLMaxString(name string) *LMaxString {
+	m := d.NewLMaxString()
+	m.name = name
+	return d.DeclareRelation(name, m).(*LMaxString)
+}
+
 func (d *D) DeclareLBool(name string) *LBool {
 	m := d.NewLBool()
 	m.name = name
@@ -77,6 +90,8 @@ func (d *D) NewLSet(t reflect.Type) *LSet {
 }
 
 func (d *D) NewLMax() *LMax { return &LMax{d: d} }
+
+func (d *D) NewLMaxString() *LMaxString { return &LMaxString{d: d} }
 
 func (d *D) NewLBool() *LBool { return &LBool{d: d} }
 
@@ -93,6 +108,10 @@ func (m *LMax) TupleType() reflect.Type {
 	return reflect.TypeOf(0)
 }
 
+func (m *LMaxString) TupleType() reflect.Type {
+	return reflect.TypeOf("")
+}
+
 func (m *LBool) TupleType() reflect.Type {
 	var x bool
 	return reflect.TypeOf(x)
@@ -107,6 +126,10 @@ func (m *LSet) DeclareScratch() {
 }
 
 func (m *LMax) DeclareScratch() {
+	m.scratch = true
+}
+
+func (m *LMaxString) DeclareScratch() {
 	m.scratch = true
 }
 
@@ -129,6 +152,12 @@ func (m *LSet) startTick() {
 func (m *LMax) startTick() {
 	if m.scratch {
 		m.v = 0
+	}
+}
+
+func (m *LMaxString) startTick() {
+	if m.scratch {
+		m.v = ""
 	}
 }
 
@@ -180,6 +209,15 @@ func (m *LMax) DirectAdd(v interface{}) bool {
 	return false
 }
 
+func (m *LMaxString) DirectAdd(v interface{}) bool {
+	vs := v.(string)
+	if m.v < vs {
+		m.v = vs
+		return true
+	}
+	return false
+}
+
 func (m *LBool) DirectAdd(v interface{}) bool {
 	old := m.v
 	m.v = m.v || v.(bool)
@@ -206,6 +244,10 @@ func (m *LSet) DirectMerge(rel Relation) bool {
 
 func (m *LMax) DirectMerge(rel Relation) bool {
 	return m.DirectAdd(rel.(*LMax).v)
+}
+
+func (m *LMaxString) DirectMerge(rel Relation) bool {
+	return m.DirectAdd(rel.(*LMaxString).v)
 }
 
 func (m *LBool) DirectMerge(rel Relation) bool {
@@ -235,6 +277,15 @@ func (m *LSet) Scan() chan interface{} {
 }
 
 func (m *LMax) Scan() chan interface{} {
+	ch := make(chan interface{})
+	go func() {
+		ch <- m.v
+		close(ch)
+	}()
+	return ch
+}
+
+func (m *LMaxString) Scan() chan interface{} {
 	ch := make(chan interface{})
 	go func() {
 		ch <- m.v
@@ -279,6 +330,12 @@ func (m *LMax) Snapshot() Lattice {
 	return s
 }
 
+func (m *LMaxString) Snapshot() Lattice {
+	s := m.d.NewLMaxString()
+	s.v = m.v
+	return s
+}
+
 func (m *LBool) Snapshot() Lattice {
 	s := m.d.NewLBool()
 	s.v = m.v
@@ -311,6 +368,10 @@ func (m *LSet) Size() int {
 }
 
 func (m *LMax) Int() int {
+	return m.v
+}
+
+func (m *LMaxString) String() string {
 	return m.v
 }
 
