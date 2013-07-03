@@ -245,6 +245,7 @@ func RaftInit(d *D, prefix string) *D {
 
 	d.Join(rvote, bestCandidate, currTerm,
 		func(rvote *RaftVoteRequest, bestCandidate *string, t *int) *RaftVoteResponse {
+			// Grant vote if we hadn't voted yet or if we already voted for the candidate.
 			granted :=
 				(votedForInCurrTerm.(*LSet).Size() == 0 && rvote.From == *bestCandidate) ||
 					(votedForInCurrTerm.(*LSet).Contains(rvote.From))
@@ -255,6 +256,15 @@ func RaftInit(d *D, prefix string) *D {
 				Granted: granted,
 			}
 		}).IntoAsync(rvoter)
+
+	d.Join(bestCandidate, currTerm,
+		func(bestCandidate *string, currTerm *int) *RaftVote {
+			// Remember our vote if we hadn't voted for anyone yet.
+			if votedForInCurrTerm.(*LSet).Size() == 0 && *bestCandidate != "" {
+				return &RaftVote{*currTerm, *bestCandidate}
+			}
+			return nil
+		}).IntoAsync(votedFor)
 
 	// Incorporate next term and next state.
 
