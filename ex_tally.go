@@ -48,3 +48,15 @@ func MultiTallyInit(d *D, prefix string) *D {
 func init() {
 	MultiTallyInit(NewD(""), "")
 }
+
+func MultiTallyVoters(d *D, prefix string, race string) *LSet {
+	return d.Relations[prefix+"multiTallyTotal"].(*LMap).At(race).(*LSet)
+}
+
+func MultiTallyHasVoteFrom(d *D, prefix string, race string, voter string) bool {
+	s := MultiTallyVoters(d, prefix, race)
+	if s != nil {
+		return s.Contains(voter)
+	}
+	return false
+}

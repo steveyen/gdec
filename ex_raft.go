@@ -2,8 +2,6 @@ package gdec
 
 import (
 	"fmt"
-	"reflect"
-	"strings"
 )
 
 // Invoked by candidates to gather votes.
@@ -22,6 +20,7 @@ type RaftVoteResponse struct {
 	Granted bool // True means candidate received vote.
 }
 
+// Invoked by leaders to replicate log entries.
 type RaftAppendEntryRequest struct {
 	To           string
 	LeaderTerm   int    // Leader's term.
@@ -60,7 +59,7 @@ const (
 	state_STEP_DOWN = 3 // Must be largest for LMax precedence.
 
 	state_KIND_MASK    = 0x0000000f
-	state_VERSION_MASK = 0xfffffff0 // Highest bits are version.
+	state_VERSION_MASK = 0xfffffff0 // Highest bits are version for precedence.
 	state_VERSION_NEXT = 0x00000010
 )
 
@@ -94,9 +93,10 @@ func RaftInit(d *D, prefix string) *D {
 	// currVote := d.DeclareLSet(prefix+"raftCurrVote", "addrString") // My vote.
 	nextVote := d.DeclareLSet(prefix+"raftNextVote", "addrString")
 
-	tally := d.DeclareLMap(prefix + "raftTally")                  // Key: "term:addr", val: LBool.
-	yesVotes := d.Scratch(d.DeclareLMap(prefix + "raftYesVotes")) // Key: "term", val: LSet.
-	wonTerm := d.Scratch(d.DeclareLSet(prefix+"raftWonTerm", 0))
+	MultiTallyInit(d, prefix+"tally/")
+	tallyVote := d.Relations[prefix+"tally/MultiTallyVote"].(*LSet)
+	tallyNeed := d.Relations[prefix+"tally/MultiTallyNeed"].(*LMax)
+	tallyDone := d.Relations[prefix+"tally/MultiTallyDone"].(*LMap)
 
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
@@ -109,6 +109,11 @@ func RaftInit(d *D, prefix string) *D {
 	heartBeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartBeat"))   // TODO: periodic.
 
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
+
+	d.Join(func() int { return member.Size() / 2 }).
+		Into(tallyNeed)
+
+	// Initialize our scratch next term/state.
 
 	d.Join(currTerm).
 		Into(nextTerm)
@@ -131,18 +136,18 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Timeouts.
 
-	d.Join(alarm, currTerm, currState, func(alarm *bool, currTerm *int, currState *int) {
+	d.Join(alarm, currTerm, currState, func(alarm *bool, t *int, s *int) {
 		// Move to candidate state, with a new term, self-vote, and alarm reset.
-		if *alarm && stateKind(*currState) != state_LEADER {
-			d.Add(nextTerm, *currTerm+1)
+		if *alarm && stateKind(*s) != state_LEADER {
+			d.Add(nextTerm, *t+1)
 			d.Add(nextState, state_CANDIDATE)
-			d.Add(nextVote, d.Addr)
+			d.Add(nextVote, d.Addr) // TODO.
 			d.Add(resetAlarm, true)
 			return
 		}
-		d.Add(nextTerm, *currTerm)
-		d.Add(nextState, stateKind(*currState))
-		d.Add(nextVote, "")
+		d.Add(nextTerm, *t)
+		d.Add(nextState, stateKind(*s))
+		d.Add(nextVote, "") // TODO.
 		d.Add(resetAlarm, false)
 	})
 
@@ -162,10 +167,11 @@ func RaftInit(d *D, prefix string) *D {
 	// Send vote requests.
 
 	d.Join(heartBeat, member, currState, currTerm, logState,
-		func(h *bool, mAddr *string, s *int, t *int, l *RaftLogState) *RaftVoteRequest {
-			if stateKind(*s) == state_CANDIDATE && !tallyHasVoteFrom(tally, *t, *mAddr) {
+		func(h *bool, a *string, s *int, t *int, l *RaftLogState) *RaftVoteRequest {
+			if stateKind(*s) == state_CANDIDATE &&
+				!MultiTallyHasVoteFrom(d, prefix+"tally/", termToRace(*t), *a) {
 				return &RaftVoteRequest{
-					To:           *mAddr,
+					To:           *a,
 					From:         d.Addr,
 					Term:         *t,
 					LastLogTerm:  l.LastTerm,
@@ -177,38 +183,33 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Tally votes when we're a candidate.
 
-	d.Join(rvoter, func(rvoter *RaftVoteResponse) int { return rvoter.Term }).
+	d.Join(rvoter, func(r *RaftVoteResponse) int { return r.Term }).
 		Into(nextTerm)
 
 	d.Join(currTerm, currState, rvoter,
-		func(currTerm *int, currState *int, rvoter *RaftVoteResponse) int {
-			// If our term is stale, step down.
-			if stateKind(*currState) != state_FOLLOWER && rvoter.Term > *currTerm {
+		func(currTerm *int, currState *int, r *RaftVoteResponse) int {
+			// If our term is stale, step down as candidate or leader.
+			if stateKind(*currState) != state_FOLLOWER && r.Term > *currTerm {
 				return state_STEP_DOWN
 			}
 			return stateKind(*currState)
 		}).Into(nextState)
 
 	d.Join(currTerm, currState, rvoter,
-		func(currTerm *int, currState *int, r *RaftVoteResponse) *LMapEntry {
-			// Record the vote if we're still a candidate and in the same term.
-			if stateKind(*currState) == state_CANDIDATE && r.Term == *currTerm {
-				return &LMapEntry{voteKey(r.Term, r.From), NewLBool(d, r.Granted)}
+		func(currTerm *int, currState *int, r *RaftVoteResponse) *MultiTallyVote {
+			// Record granted vote if we're still a candidate in the same term.
+			if stateKind(*currState) == state_CANDIDATE &&
+				r.Term == *currTerm && r.Granted {
+				return &MultiTallyVote{termToRace(r.Term), r.From}
 			}
 			return nil
-		}).Into(tally)
+		}).Into(tallyVote)
 
-	d.Join(tally, func(e *LMapEntry) *LMapEntry {
-		term := strings.Split(e.Key, ":")[0]
-		if e.Val.(*LBool).Bool() {
-			return &LMapEntry{term, d.NewLSet(reflect.TypeOf(0))}
-		}
-		return nil
-	}).Into(yesVotes)
-
-	d.Join(wonTerm, currTerm, currState,
-		func(wonTerm *int, currTerm *int, currState *int) int {
-			if *wonTerm == *currTerm && stateKind(*currState) == state_CANDIDATE {
+	d.Join(currTerm, currState, tallyDone,
+		func(currTerm *int, currState *int, tallyDone *LMapEntry) int {
+			// Become leader if we won the race.
+			if stateKind(*currState) == state_CANDIDATE &&
+				tallyDone.Key == termToRace(*currTerm) {
 				return state_LEADER
 			}
 			return stateKind(*currState)
@@ -234,10 +235,6 @@ func init() {
 	RaftInit(NewD(""), "")
 }
 
-func voteKey(term int, addr string) string {
-	return fmt.Sprintf("%d:%s", term, addr)
-}
-
-func tallyHasVoteFrom(tally *LMap, term int, addr string) bool {
-	return tally.At(voteKey(term, addr)) != nil
+func termToRace(term int) string {
+	return fmt.Sprintf("%d", term)
 }
