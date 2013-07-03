@@ -106,7 +106,7 @@ func RaftInit(d *D, prefix string) *D {
 	nextState := d.Scratch(d.DeclareLMax(prefix + "raftNextState"))
 
 	alarm := d.Scratch(d.DeclareLBool(prefix + "raftAlarm"))         // TODO: periodic.
-	heartBeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartBeat")) // TODO: periodic.
+	heartbeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartbeat")) // TODO: periodic.
 
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
 
@@ -166,7 +166,7 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Send vote requests.
 
-	d.Join(heartBeat, member, currTerm, currState, logState,
+	d.Join(heartbeat, member, currTerm, currState, logState,
 		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftVoteRequest {
 			if stateKind(*s) == state_CANDIDATE &&
 				!MultiTallyHasVoteFrom(d, prefix+"tally/", termToRace(*t), *a) {
@@ -268,7 +268,7 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Send heartbeats.
 
-	d.Join(heartBeat, member, currTerm, currState, logState,
+	d.Join(heartbeat, member, currTerm, currState, logState,
 		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftAppendEntryRequest {
 			if stateKind(*s) == state_LEADER {
 				return &RaftAppendEntryRequest{
