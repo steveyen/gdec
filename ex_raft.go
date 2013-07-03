@@ -135,19 +135,6 @@ func RaftInit(d *D, prefix string) *D {
 			return stateKind(*currState)
 		}).Into(nextState)
 
-	// Timeouts.
-
-	d.Join(alarm, currTerm, currState, func(alarm *bool, t *int, s *int) {
-		// Move to candidate state, with a new term, self-vote, and alarm reset.
-		if *alarm && stateKind(*s) != state_LEADER {
-			d.Add(nextTerm, *t+1)
-			d.Add(nextState, state_CANDIDATE)
-			d.Add(tallyVote, &MultiTallyVote{termToRace(*t + 1), d.Addr})
-			// TODO: d.Add(resetAlarm, true)
-			return
-		}
-	})
-
 	d.Join(rvote, currTerm,
 		func(rvote *RaftVoteRequest, currTerm *int) *RaftVoteResponse {
 			if rvote.Term < *currTerm {
@@ -160,6 +147,20 @@ func RaftInit(d *D, prefix string) *D {
 			}
 			return nil // TODO.
 		}).IntoAsync(rvoter)
+
+	// Timeouts.
+
+	d.Join(alarm, currTerm, currState, func(alarm *bool, t *int, s *int) {
+		// Move to candidate state, with a new term, self-vote, and alarm reset.
+		if *alarm && stateKind(*s) != state_LEADER {
+			d.Add(nextTerm, *t+1)
+			d.Add(nextState, state_CANDIDATE)
+			d.Add(tallyVote, &MultiTallyVote{termToRace(*t + 1), d.Addr})
+			// TODO: d.Add(resetAlarm, true)
+			// TODO: Remove uncommitted logs.
+			return
+		}
+	})
 
 	// Send vote requests.
 
