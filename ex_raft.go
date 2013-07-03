@@ -284,6 +284,22 @@ func RaftInit(d *D, prefix string) *D {
 			return nil
 		}).IntoAsync(rappend)
 
+	// Handle append entry requests.
+
+	d.Join(rappend, func(r *RaftAppendEntryRequest) int { return r.Term }).
+		Into(nextTerm)
+
+	d.Join(rappend, currTerm, currState,
+		func(rappend *RaftAppendEntryRequest, currTerm *int, currState *int) int {
+			if stateKind(*currState) == state_CANDIDATE && rappend.Term >= *currTerm {
+				return state_STEP_DOWN
+			}
+			if stateKind(*currState) == state_LEADER && rappend.Term > *currTerm {
+				return state_STEP_DOWN
+			}
+			return stateKind(*currState)
+		}).Into(nextState)
+
 	// Incorporate next term and next state.
 
 	d.Join(nextTerm).
