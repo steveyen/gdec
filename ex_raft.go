@@ -244,17 +244,16 @@ func RaftInit(d *D, prefix string) *D {
 		Into(bestCandidate) // Not the greatest best function, but its stable.
 
 	d.Join(rvote, bestCandidate, currTerm,
-		func(rvote *RaftVoteRequest, bestCandidate *string, currTerm *int) *RaftVoteResponse {
+		func(rvote *RaftVoteRequest, bestCandidate *string, t *int) *RaftVoteResponse {
 			granted :=
 				(votedForInCurrTerm.(*LSet).Size() == 0 && rvote.From == *bestCandidate) ||
 					(votedForInCurrTerm.(*LSet).Contains(rvote.From))
 			return &RaftVoteResponse{
 				To:      rvote.From,
 				From:    rvote.To,
-				Term:    rvote.Term,
+				Term:    *t,
 				Granted: granted,
 			}
-			return nil // TODO.
 		}).IntoAsync(rvoter)
 
 	// Incorporate next term and next state.
