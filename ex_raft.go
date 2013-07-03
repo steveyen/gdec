@@ -286,6 +286,6 @@ func init() {
 	RaftInit(NewD(""), "")
 }
 
-func termToRace(term int) string {
+func termToRace(term int) string { // A MultiTallyVote.Race is string type.
 	return fmt.Sprintf("%d", term)
 }
