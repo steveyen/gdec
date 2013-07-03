@@ -39,6 +39,11 @@ type RaftAppendEntryResponse struct {
 	CommitIndex int
 }
 
+type RaftVote struct {
+	Term      int
+	Candidate string
+}
+
 type RaftEntry struct {
 	Term  int    // Term when entry was received by leader.
 	Index int    // Position of entry in the log.
@@ -86,9 +91,8 @@ func RaftInit(d *D, prefix string) *D {
 
 	member := d.DeclareLSet(prefix+"raftMember", "addrString")
 
-	// votedFor := d.DeclareLSet(prefix + "raftVotedFor", "addrString")
-	// votedForInCurrTerm := d.DeclareLSet(prefix + "raftVotedForInCurrTerm", "addrString")
-	// votedForInCurrTick := d.DeclareLSet(prefix + "raftVotedForInCurrTick", "addrString")
+	votedFor := d.DeclareLSet(prefix+"raftVotedFor", RaftVote{})
+	votedForCurrTerm := d.Scratch(d.DeclareLSet(prefix+"raftVotedForCurrTerm", "addrString"))
 
 	MultiTallyInit(d, prefix+"tally/")
 	tallyVote := d.Relations[prefix+"tally/MultiTallyVote"].(*LSet)
@@ -209,6 +213,16 @@ func RaftInit(d *D, prefix string) *D {
 			}
 			return stateKind(*currState)
 		}).Into(nextState)
+
+	// Cast votes.
+
+	d.Join(currTerm, votedFor,
+		func(currTerm *int, votedFor *RaftVote) *string {
+			if *currTerm == votedFor.Term {
+				return &votedFor.Candidate
+			}
+			return nil
+		}).Into(votedForCurrTerm)
 
 	// Incorporate next term and next state.
 
