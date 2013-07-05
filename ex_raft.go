@@ -126,6 +126,8 @@ func RaftInit(d *D, prefix string) *D {
 	// tallyCommitNeed := d.Relations[prefix+"tallyCommit/MultiTallyNeed"].(*LMax)
 	// tallyCommitDone := d.Relations[prefix+"tallyCommit/MultiTallyDone"].(*LMap)
 
+	// ------------------------------------------------------------------------
+
 	d.Join(func() int { return member.Size() / 2 }).Into(tallyLeaderNeed)
 
 	// Initialize our scratch next term/state.
@@ -160,15 +162,6 @@ func RaftInit(d *D, prefix string) *D {
 	d.Join(raddr, curTerm, curState,
 		func(r *RaftAddEntryRes, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
 		Into(nextState)
-
-	// Incoming votes requests.
-	d.Join(rvote, curTerm,
-		func(r *RaftVoteReq, t *int) *RaftVoteRes {
-			if r.Term < *t {
-				return &RaftVoteRes{To: r.From, From: r.To, Term: *t, Granted: false}
-			}
-			return nil // TODO.
-		}).IntoAsync(rvoter)
 
 	// Timeout means we should become a candidate.
 	d.Join(alarm, curTerm, curState, func(alarm *bool, t *int, s *int) {
@@ -249,9 +242,9 @@ func RaftInit(d *D, prefix string) *D {
 	d.Join(rvote, bestCandidate, curTerm,
 		func(r *RaftVoteReq, b *string, t *int) *RaftVoteRes {
 			// Grant vote if we hadn't voted yet or if we already voted for the candidate.
-			granted :=
-				(votedForInCurTerm.(*LSet).Size() == 0 && r.From == *b) ||
-					(votedForInCurTerm.(*LSet).Contains(r.From))
+			granted := r.Term >= *t &&
+				((votedForInCurTerm.(*LSet).Size() == 0 && r.From == *b) ||
+					(votedForInCurTerm.(*LSet).Contains(r.From)))
 			return &RaftVoteRes{To: r.From, From: r.To, Term: *t, Granted: granted}
 		}).IntoAsync(rvoter) // TODO: Reset timer if we grant a vote to a candidate.
 
@@ -318,19 +311,6 @@ func RaftInit(d *D, prefix string) *D {
 					Term: r.Term, Index: r.PrevLogIndex + 1, Entry: r.Entry})
 			}
 		})
-
-	d.Join(radd, curState, logEntry,
-		func(r *RaftAddEntryReq, s *int, m *LMapEntry) *RaftEntry {
-			if r.Entry == "" || stateKind(*s) == state_LEADER ||
-				keyToIndex(m.Key) != r.PrevLogIndex {
-				return nil
-			}
-			e := maxRaftEntry(m.Val.(*LSet))
-			if e == nil || e.Term != r.PrevLogTerm {
-				return nil
-			}
-			return &RaftEntry{Term: r.Term, Index: r.PrevLogIndex + 1, Entry: r.Entry}
-		}).Into(logAdd)
 
 	d.Join(radd, func(r *RaftAddEntryReq) int { return r.CommitIndex }).
 		Into(logCommit) // TODO: commit entries before this point.
