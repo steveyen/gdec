@@ -122,17 +122,24 @@ func RaftInit(d *D, prefix string) *D {
 	nextIndex := d.DeclareLMap(prefix + "raftNextIndex") // Key: "addr", val: LMax.
 
 	MultiTallyInit(d, prefix+"tallyCommit/")
-	tallyCommitVote := d.Relations[prefix+"tallyCommit/MultiTallyVote"].(*LSet)
-	tallyCommitNeed := d.Relations[prefix+"tallyCommit/MultiTallyNeed"].(*LMax)
-	tallyCommitDone := d.Relations[prefix+"tallyCommit/MultiTallyDone"].(*LMap)
+	// tallyCommitVote := d.Relations[prefix+"tallyCommit/MultiTallyVote"].(*LSet)
+	// tallyCommitNeed := d.Relations[prefix+"tallyCommit/MultiTallyNeed"].(*LMax)
+	// tallyCommitDone := d.Relations[prefix+"tallyCommit/MultiTallyDone"].(*LMap)
 
 	d.Join(func() int { return member.Size() / 2 }).Into(tallyLeaderNeed)
 
 	// Initialize our scratch next term/state.
-	d.Join(curTerm).
-		Into(nextTerm)
-	d.Join(curState, func(curState *int) int { return stateKind(*curState) }).
-		Into(nextState)
+	d.Join(curTerm).Into(nextTerm)
+	d.Join(curState, func(s *int) int { return stateKind(*s) }).Into(nextState)
+
+	// Incorporate next term and next state asynchronously.
+	d.Join(nextTerm).IntoAsync(curTerm)
+	d.Join(nextState, curState, func(n *int, s *int) int {
+		if *n == state_STEP_DOWN {
+			return stateVersionNext(*s) + state_FOLLOWER
+		}
+		return stateVersion(*s) + stateKind(*n)
+	}).IntoAsync(curState)
 
 	// Any incoming higher terms take precendence.
 	d.Join(rvote, func(r *RaftVoteReq) int { return r.Term }).Into(nextTerm)
@@ -386,19 +393,6 @@ func RaftInit(d *D, prefix string) *D {
 				CommitIndex:  logState.LastCommitIndex,
 			}
 		}).IntoAsync(rappend)
-
-	// Incorporate next term and next state.
-
-	d.Join(nextTerm).
-		IntoAsync(curTerm)
-
-	d.Join(nextState, curState,
-		func(nextState *int, curState *int) int {
-			if *nextState == state_STEP_DOWN {
-				return stateVersionNext(*curState) + state_FOLLOWER
-			}
-			return stateVersion(*curState) + stateKind(*nextState)
-		}).IntoAsync(curState)
 
 	return d
 }
