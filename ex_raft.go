@@ -6,7 +6,7 @@ import (
 )
 
 // Invoked by candidates to gather votes.
-type RaftVoteRequest struct {
+type RaftVoteReq struct {
 	To           string
 	From         string // Candidate requesting vote.
 	Term         int    // Candidate's term.
@@ -14,7 +14,7 @@ type RaftVoteRequest struct {
 	LastLogIndex int    // Index of candidate's last log entry.
 }
 
-type RaftVoteResponse struct {
+type RaftVoteRes struct { // Response.
 	To      string
 	From    string
 	Term    int  // Current term, for candidate to update itself.
@@ -22,7 +22,7 @@ type RaftVoteResponse struct {
 }
 
 // Invoked by leaders to replicate log entries.
-type RaftAppendEntryRequest struct {
+type RaftAddEntryReq struct {
 	To           string
 	From         string // Leader's addr, allowing follower to redirect clients.
 	Term         int    // Leader's term.
@@ -32,7 +32,7 @@ type RaftAppendEntryRequest struct {
 	CommitIndex  int    // Last entry known to be commited.
 }
 
-type RaftAppendEntryResponse struct {
+type RaftAddEntryRes struct { // Response.
 	To      string
 	From    string
 	Term    int  // Current term, for leader to update itself.
@@ -74,26 +74,26 @@ func stateVersion(s int) int     { return s & state_VERSION_MASK }
 func stateVersionNext(s int) int { return stateVersion(s) + state_VERSION_NEXT }
 
 func RaftProtocolInit(d *D, prefix string) *D {
-	d.DeclareChannel(prefix+"RaftVoteRequest", RaftVoteRequest{})
-	d.DeclareChannel(prefix+"RaftVoteResponse", RaftVoteResponse{})
-	d.DeclareChannel(prefix+"RaftAppendEntryRequest", RaftAppendEntryRequest{})
-	d.DeclareChannel(prefix+"RaftAppendEntryResponse", RaftAppendEntryResponse{})
+	d.DeclareChannel(prefix+"RaftVoteReq", RaftVoteReq{})
+	d.DeclareChannel(prefix+"RaftVoteRes", RaftVoteRes{})
+	d.DeclareChannel(prefix+"RaftAddEntryReq", RaftAddEntryReq{})
+	d.DeclareChannel(prefix+"RaftAddEntryRes", RaftAddEntryRes{})
 	return d
 }
 
 func RaftInit(d *D, prefix string) *D {
 	d = RaftProtocolInit(d, prefix)
 
-	rvote := d.Relations[prefix+"RaftVoteRequest"]
-	rvoter := d.Relations[prefix+"RaftVoteResponse"]
+	rvote := d.Relations[prefix+"RaftVoteReq"]
+	rvoter := d.Relations[prefix+"RaftVoteRes"]
 
-	rappend := d.Relations[prefix+"RaftAppendEntryRequest"]
-	rappendr := d.Relations[prefix+"RaftAppendEntryResponse"]
+	rappend := d.Relations[prefix+"RaftAddEntryReq"]
+	rappendr := d.Relations[prefix+"RaftAddEntryRes"]
 
 	member := d.DeclareLSet(prefix+"raftMember", "addrString")
 
-	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
-	currState := d.DeclareLMax(prefix + "raftCurrState")
+	curTerm := d.DeclareLMax(prefix + "raftCurTerm")
+	curState := d.DeclareLMax(prefix + "raftCurState")
 
 	nextTerm := d.Scratch(d.DeclareLMax(prefix + "raftNextTerm"))
 	nextState := d.Scratch(d.DeclareLMax(prefix + "raftNextState"))
@@ -107,11 +107,11 @@ func RaftInit(d *D, prefix string) *D {
 	tallyLeaderNeed := d.Relations[prefix+"tallyLeader/MultiTallyNeed"].(*LMax)
 	tallyLeaderDone := d.Relations[prefix+"tallyLeader/MultiTallyDone"].(*LMap)
 
-	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteRequest{}))
+	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteReq{}))
 	bestCandidate := d.Scratch(d.DeclareLMaxString(prefix + "raftBestCandidate"))
 
 	votedFor := d.DeclareLSet(prefix+"raftVotedFor", RaftVote{})
-	votedForInCurrTerm := d.Scratch(d.DeclareLSet(prefix+"raftVotedForInCurrTerm", "addrString"))
+	votedForInCurTerm := d.Scratch(d.DeclareLSet(prefix+"raftVotedForInCurTerm", "addrString"))
 
 	// Key: "index", val: LSet[RaftEntry].
 	logEntry := d.DeclareLMap(prefix + "raftEntry")
@@ -129,41 +129,54 @@ func RaftInit(d *D, prefix string) *D {
 	d.Join(func() int { return member.Size() / 2 }).Into(tallyLeaderNeed)
 
 	// Initialize our scratch next term/state.
-
-	d.Join(currTerm).Into(nextTerm)
-
-	d.Join(currState, func(currState *int) int { return stateKind(*currState) }).
+	d.Join(curTerm).
+		Into(nextTerm)
+	d.Join(curState, func(curState *int) int { return stateKind(*curState) }).
 		Into(nextState)
 
-	// Incoming vote requests.
+	// Any incoming higher terms take precendence.
+	d.Join(rvote, func(r *RaftVoteReq) int { return r.Term }).Into(nextTerm)
+	d.Join(rvoter, func(r *RaftVoteRes) int { return r.Term }).Into(nextTerm)
+	d.Join(rappend, func(r *RaftAddEntryReq) int { return r.Term }).Into(nextTerm)
+	d.Join(rappendr, func(r *RaftAddEntryRes) int { return r.Term }).Into(nextTerm)
 
-	d.Join(rvote, func(rvote *RaftVoteRequest) int { return rvote.Term }).
-		Into(nextTerm)
-
-	d.Join(rvote, currTerm, currState,
-		func(rvote *RaftVoteRequest, currTerm *int, currState *int) int {
-			if rvote.Term > *currTerm {
+	// Any incoming higher terms can make us step down.
+	d.Join(rvote, curTerm, curState,
+		func(r *RaftVoteReq, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
+		Into(nextState)
+	d.Join(rvoter, curTerm, curState,
+		func(r *RaftVoteRes, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
+		Into(nextState)
+	d.Join(rappend, curTerm, curState,
+		func(r *RaftAddEntryReq, t *int, s *int) int {
+			if stateKind(*s) != state_LEADER {
+				return caseStepDown(r.Term, *t, *s)
+			}
+			if r.Term > *t {
 				return state_STEP_DOWN
 			}
-			return stateKind(*currState)
+			return stateKind(*s)
 		}).Into(nextState)
+	d.Join(rappendr, curTerm, curState,
+		func(r *RaftAddEntryRes, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
+		Into(nextState)
 
-	d.Join(rvote, currTerm,
-		func(rvote *RaftVoteRequest, currTerm *int) *RaftVoteResponse {
-			if rvote.Term < *currTerm {
-				return &RaftVoteResponse{
+	// Incoming votes requests.
+	d.Join(rvote, curTerm,
+		func(rvote *RaftVoteReq, curTerm *int) *RaftVoteRes {
+			if rvote.Term < *curTerm {
+				return &RaftVoteRes{
 					To:      rvote.From,
 					From:    rvote.To,
-					Term:    *currTerm,
+					Term:    *curTerm,
 					Granted: false,
 				}
 			}
 			return nil // TODO.
 		}).IntoAsync(rvoter)
 
-	// Timeouts.
-
-	d.Join(alarm, currTerm, currState, func(alarm *bool, t *int, s *int) {
+	// Timeout means we should become a candidate.
+	d.Join(alarm, curTerm, curState, func(alarm *bool, t *int, s *int) {
 		// Move to candidate state, with a new term, self-vote, and alarm reset.
 		if *alarm && stateKind(*s) != state_LEADER {
 			d.Add(nextTerm, *t+1)
@@ -176,12 +189,11 @@ func RaftInit(d *D, prefix string) *D {
 	})
 
 	// Send vote requests.
-
-	d.Join(heartbeat, member, currTerm, currState, logState,
-		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftVoteRequest {
+	d.Join(heartbeat, member, curTerm, curState, logState,
+		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftVoteReq {
 			if stateKind(*s) == state_CANDIDATE &&
 				!MultiTallyHasVoteFrom(d, prefix+"tallyLeader/", termToKey(*t), *a) {
-				return &RaftVoteRequest{
+				return &RaftVoteReq{
 					To:           *a,
 					From:         d.Addr,
 					Term:         *t,
@@ -193,53 +205,40 @@ func RaftInit(d *D, prefix string) *D {
 		}).IntoAsync(rvote)
 
 	// Tally votes when we're a candidate.
-
-	d.Join(rvoter, func(r *RaftVoteResponse) int { return r.Term }).
-		Into(nextTerm)
-
-	d.Join(currTerm, currState, rvoter,
-		func(currTerm *int, currState *int, r *RaftVoteResponse) int {
-			// If our term is stale, step down as candidate or leader.
-			if stateKind(*currState) != state_FOLLOWER && r.Term > *currTerm {
-				return state_STEP_DOWN
-			}
-			return stateKind(*currState)
-		}).Into(nextState)
-
-	d.Join(currTerm, currState, rvoter,
-		func(currTerm *int, currState *int, r *RaftVoteResponse) *MultiTallyVote {
+	d.Join(curTerm, curState, rvoter,
+		func(curTerm *int, curState *int, r *RaftVoteRes) *MultiTallyVote {
 			// Record granted vote if we're still a candidate in the same term.
-			if stateKind(*currState) == state_CANDIDATE &&
-				r.Term == *currTerm && r.Granted {
+			if stateKind(*curState) == state_CANDIDATE &&
+				r.Term == *curTerm && r.Granted {
 				return &MultiTallyVote{termToKey(r.Term), r.From}
 			}
 			return nil
 		}).Into(tallyLeaderVote)
 
-	d.Join(currTerm, currState,
-		func(currTerm *int, currState *int) int {
+	d.Join(curTerm, curState,
+		func(curTerm *int, curState *int) int {
 			// Become leader if we won the race.
-			if stateKind(*currState) == state_CANDIDATE {
-				won := tallyLeaderDone.At(termToKey(*currTerm)).(*LBool)
+			if stateKind(*curState) == state_CANDIDATE {
+				won := tallyLeaderDone.At(termToKey(*curTerm)).(*LBool)
 				if won != nil && won.Bool() {
 					return state_LEADER
 				}
 			}
-			return stateKind(*currState)
+			return stateKind(*curState)
 		}).Into(nextState)
 
 	// Cast votes.
 
-	d.Join(currTerm, votedFor,
-		func(currTerm *int, votedFor *RaftVote) *string {
-			if *currTerm == votedFor.Term {
+	d.Join(curTerm, votedFor,
+		func(curTerm *int, votedFor *RaftVote) *string {
+			if *curTerm == votedFor.Term {
 				return &votedFor.Candidate
 			}
 			return nil
-		}).Into(votedForInCurrTerm)
+		}).Into(votedForInCurTerm)
 
 	d.Join(rvote, logState,
-		func(rvote *RaftVoteRequest, logState *RaftLogState) *RaftVoteRequest {
+		func(rvote *RaftVoteReq, logState *RaftLogState) *RaftVoteReq {
 			// Good candidate only if candidate's log is at or beyond our log.
 			if rvote.LastLogTerm > logState.LastTerm {
 				return rvote
@@ -251,16 +250,16 @@ func RaftInit(d *D, prefix string) *D {
 			return nil
 		}).Into(goodCandidate)
 
-	d.Join(goodCandidate, func(g *RaftVoteRequest) string { return g.From }).
+	d.Join(goodCandidate, func(g *RaftVoteReq) string { return g.From }).
 		Into(bestCandidate) // Not the greatest best function, but it's stable.
 
-	d.Join(rvote, bestCandidate, currTerm,
-		func(rvote *RaftVoteRequest, bestCandidate *string, t *int) *RaftVoteResponse {
+	d.Join(rvote, bestCandidate, curTerm,
+		func(rvote *RaftVoteReq, bestCandidate *string, t *int) *RaftVoteRes {
 			// Grant vote if we hadn't voted yet or if we already voted for the candidate.
 			granted :=
-				(votedForInCurrTerm.(*LSet).Size() == 0 && rvote.From == *bestCandidate) ||
-					(votedForInCurrTerm.(*LSet).Contains(rvote.From))
-			return &RaftVoteResponse{
+				(votedForInCurTerm.(*LSet).Size() == 0 && rvote.From == *bestCandidate) ||
+					(votedForInCurTerm.(*LSet).Contains(rvote.From))
+			return &RaftVoteRes{
 				To:      rvote.From,
 				From:    rvote.To,
 				Term:    *t,
@@ -268,21 +267,21 @@ func RaftInit(d *D, prefix string) *D {
 			}
 		}).IntoAsync(rvoter) // TODO: Reset timer if we grant a vote to a candidate.
 
-	d.Join(bestCandidate, currTerm,
-		func(bestCandidate *string, currTerm *int) *RaftVote {
+	d.Join(bestCandidate, curTerm,
+		func(bestCandidate *string, curTerm *int) *RaftVote {
 			// Remember our vote if we hadn't voted for anyone yet.
-			if votedForInCurrTerm.(*LSet).Size() == 0 && *bestCandidate != "" {
-				return &RaftVote{*currTerm, *bestCandidate}
+			if votedForInCurTerm.(*LSet).Size() == 0 && *bestCandidate != "" {
+				return &RaftVote{*curTerm, *bestCandidate}
 			}
 			return nil
 		}).IntoAsync(votedFor)
 
 	// Send heartbeats.
 
-	d.Join(heartbeat, member, currTerm, currState, logState,
-		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftAppendEntryRequest {
+	d.Join(heartbeat, member, curTerm, curState, logState,
+		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftAddEntryReq {
 			if stateKind(*s) == state_LEADER {
-				return &RaftAppendEntryRequest{
+				return &RaftAddEntryReq{
 					To:           *a,
 					From:         d.Addr,
 					Term:         *t,
@@ -297,36 +296,22 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Handle append entry requests.
 
-	d.Join(rappend, func(r *RaftAppendEntryRequest) int { return r.Term }).
-		Into(nextTerm)
-
-	d.Join(rappend, currTerm, currState,
-		func(rappend *RaftAppendEntryRequest, currTerm *int, currState *int) int {
-			if stateKind(*currState) == state_CANDIDATE && rappend.Term >= *currTerm {
-				return state_STEP_DOWN
-			}
-			if stateKind(*currState) == state_LEADER && rappend.Term > *currTerm {
-				return state_STEP_DOWN
-			}
-			return stateKind(*currState)
-		}).Into(nextState)
-
-	d.Join(rappend, currTerm,
-		func(rappend *RaftAppendEntryRequest, currTerm *int) bool {
+	d.Join(rappend, curTerm,
+		func(rappend *RaftAddEntryReq, curTerm *int) bool {
 			// Reset alarm if term is current or our term is stale.
 			// TODO: Random alarm timeout.
-			return rappend.Term >= *currTerm
+			return rappend.Term >= *curTerm
 		}).Into(alarmReset)
 
-	d.Join(rappend, currTerm, logState,
-		func(rappend *RaftAppendEntryRequest, currTerm *int,
-			logState *RaftLogState) *RaftAppendEntryResponse {
+	d.Join(rappend, curTerm, logState,
+		func(rappend *RaftAddEntryReq, curTerm *int,
+			logState *RaftLogState) *RaftAddEntryRes {
 			// Fail response if previous entry doesn't exist in our log.
 			if rappend.PrevLogIndex > logState.LastIndex {
-				return &RaftAppendEntryResponse{
+				return &RaftAddEntryRes{
 					To:      rappend.From,
 					From:    rappend.To,
-					Term:    *currTerm,
+					Term:    *curTerm,
 					Success: false,
 					Index:   rappend.PrevLogIndex,
 				}
@@ -334,11 +319,11 @@ func RaftInit(d *D, prefix string) *D {
 			return nil
 		}).IntoAsync(rappendr)
 
-	d.Join(rappend, currState, logEntry,
-		func(rappend *RaftAppendEntryRequest, currState *int,
-			m *LMapEntry) *RaftAppendEntryResponse {
+	d.Join(rappend, curState, logEntry,
+		func(rappend *RaftAddEntryReq, curState *int,
+			m *LMapEntry) *RaftAddEntryRes {
 			// Success response only if log terms match.
-			if rappend.Entry == "" || stateKind(*currState) == state_LEADER ||
+			if rappend.Entry == "" || stateKind(*curState) == state_LEADER ||
 				keyToIndex(m.Key) != rappend.PrevLogIndex {
 				return nil
 			}
@@ -346,7 +331,7 @@ func RaftInit(d *D, prefix string) *D {
 			if e == nil {
 				return nil
 			}
-			return &RaftAppendEntryResponse{
+			return &RaftAddEntryRes{
 				To:      rappend.From,
 				From:    rappend.To,
 				Term:    rappend.Term,
@@ -355,11 +340,11 @@ func RaftInit(d *D, prefix string) *D {
 			}
 		}).IntoAsync(rappendr)
 
-	d.Join(rappend, currState, logEntry,
-		func(rappend *RaftAppendEntryRequest, currState *int,
+	d.Join(rappend, curState, logEntry,
+		func(rappend *RaftAddEntryReq, curState *int,
 			m *LMapEntry) *RaftEntry {
 			// Update entries if terms match, replacing/clearing later entries.
-			if rappend.Entry == "" || stateKind(*currState) == state_LEADER ||
+			if rappend.Entry == "" || stateKind(*curState) == state_LEADER ||
 				keyToIndex(m.Key) != rappend.PrevLogIndex {
 				return nil
 			}
@@ -374,16 +359,16 @@ func RaftInit(d *D, prefix string) *D {
 			}
 		}).Into(logAdd)
 
-	d.Join(rappend, func(r *RaftAppendEntryRequest) int { return r.CommitIndex }).
+	d.Join(rappend, func(r *RaftAddEntryReq) int { return r.CommitIndex }).
 		Into(logCommit) // TODO: commit entries before this point.
 
 	// Update followers.
 
-	d.Join(heartbeat, currTerm, currState, logEntry, logState, nextIndex,
-		func(hearbeat *bool, currTerm *int, currState *int,
+	d.Join(heartbeat, curTerm, curState, logEntry, logState, nextIndex,
+		func(hearbeat *bool, curTerm *int, curState *int,
 			logEntry *LMapEntry, logState *RaftLogState,
-			nextIndex *LMapEntry) *RaftAppendEntryRequest {
-			if !*hearbeat || stateKind(*currState) != state_LEADER {
+			nextIndex *LMapEntry) *RaftAddEntryReq {
+			if !*hearbeat || stateKind(*curState) != state_LEADER {
 				return nil
 			}
 			e := maxEntry(logEntry.Val.(*LSet))
@@ -391,10 +376,10 @@ func RaftInit(d *D, prefix string) *D {
 				return nil
 			}
 			// TODO: Feels like we don't get all the logs to the follower.
-			return &RaftAppendEntryRequest{
+			return &RaftAddEntryReq{
 				To:           nextIndex.Key,
 				From:         d.Addr,
-				Term:         *currTerm,
+				Term:         *curTerm,
 				PrevLogTerm:  e.Term,
 				PrevLogIndex: keyToIndex(logEntry.Key),
 				Entry:        e.Entry,
@@ -402,31 +387,18 @@ func RaftInit(d *D, prefix string) *D {
 			}
 		}).IntoAsync(rappend)
 
-	// Leader operation.
-
-	d.Join(rappendr, func(r *RaftAppendEntryResponse) int { return r.Term }).
-		Into(nextTerm)
-
-	d.Join(rappendr, currTerm, currState,
-		func(rappendr *RaftAppendEntryResponse, currTerm *int, currState *int) int {
-			if rappendr.Term > *currTerm {
-				return state_STEP_DOWN
-			}
-			return stateKind(*currState)
-		}).Into(nextState)
-
 	// Incorporate next term and next state.
 
 	d.Join(nextTerm).
-		IntoAsync(currTerm)
+		IntoAsync(curTerm)
 
-	d.Join(nextState, currState,
-		func(nextState *int, currState *int) int {
+	d.Join(nextState, curState,
+		func(nextState *int, curState *int) int {
 			if *nextState == state_STEP_DOWN {
-				return stateVersionNext(*currState) + state_FOLLOWER
+				return stateVersionNext(*curState) + state_FOLLOWER
 			}
-			return stateVersion(*currState) + stateKind(*nextState)
-		}).IntoAsync(currState)
+			return stateVersion(*curState) + stateKind(*nextState)
+		}).IntoAsync(curState)
 
 	return d
 }
@@ -449,6 +421,13 @@ func keyToIndex(key string) int {
 		return -1
 	}
 	return index
+}
+
+func caseStepDown(term, curTerm, curState int) int {
+	if term > curTerm {
+		return state_STEP_DOWN
+	}
+	return stateKind(curState)
 }
 
 func maxEntry(entries *LSet) *RaftEntry {
