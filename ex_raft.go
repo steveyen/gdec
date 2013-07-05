@@ -110,6 +110,7 @@ func RaftInit(d *D, prefix string) *D {
 	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteReq{}))
 	bestCandidate := d.Scratch(d.DeclareLMaxString(prefix + "raftBestCandidate"))
 
+	// TODO: optimization to instead use LMap["term", LSet[RaftVote]].
 	votedFor := d.DeclareLSet(prefix+"raftVotedFor", RaftVote{})
 	votedForInCurTerm := d.Scratch(d.DeclareLSet(prefix+"raftVotedForInCurTerm", "addrString"))
 
@@ -171,7 +172,7 @@ func RaftInit(d *D, prefix string) *D {
 			d.Add(nextState, state_CANDIDATE)
 			d.Add(tallyLeaderVote, &MultiTallyVote{termToKey(*t + 1), d.Addr})
 			// TODO: d.Add(resetAlarm, true)
-			// TODO: Remove uncommitted logs.
+			// TODO: remove uncommitted logs.
 			return
 		}
 	})
@@ -241,7 +242,7 @@ func RaftInit(d *D, prefix string) *D {
 				((votedForInCurTerm.(*LSet).Size() == 0 && r.From == *b) ||
 					(votedForInCurTerm.(*LSet).Contains(r.From)))
 			return &RaftVoteRes{To: r.From, From: r.To, Term: *t, Granted: granted}
-		}).IntoAsync(rvoter) // TODO: Reset timer if we grant a vote to a candidate.
+		}).IntoAsync(rvoter) // TODO: reset timer if we grant a vote to a candidate.
 
 	d.Join(bestCandidate, curTerm,
 		func(bestCandidate *string, curTerm *int) *RaftVote {
@@ -267,7 +268,7 @@ func RaftInit(d *D, prefix string) *D {
 	d.Join(radd, curTerm,
 		func(radd *RaftAddEntryReq, curTerm *int) bool {
 			// Reset alarm if term is current or our term is stale.
-			// TODO: Random alarm timeout.
+			// TODO: random alarm timeout.
 			return radd.Term >= *curTerm
 		}).Into(alarmReset)
 
@@ -316,7 +317,7 @@ func RaftInit(d *D, prefix string) *D {
 			if e == nil || e.Index != n.Val.(*LMax).Int()-1 {
 				return nil
 			}
-			// TODO: Feels like we don't get all the logs to the follower.
+			// TODO: feels like we don't get all the logs to the follower.
 			return &RaftAddEntryReq{To: n.Key, From: d.Addr, Term: *t,
 				PrevLogTerm: e.Term, PrevLogIndex: keyToIndex(le.Key),
 				Entry: e.Entry, CommitIndex: ls.LastCommitIndex}
