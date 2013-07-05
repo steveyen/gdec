@@ -400,6 +400,9 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Leader operation.
 
+	d.Join(rappendr, func(r *RaftAppendEntryResponse) int { return r.Term }).
+		Into(nextTerm)
+
 	d.Join(rappendr, currTerm, currState,
 		func(rappendr *RaftAppendEntryResponse, currTerm *int, currState *int) int {
 			if rappendr.Term > *currTerm {
