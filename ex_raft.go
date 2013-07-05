@@ -155,15 +155,8 @@ func RaftInit(d *D, prefix string) *D {
 		func(r *RaftVoteRes, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
 		Into(nextState)
 	d.Join(rappend, curTerm, curState,
-		func(r *RaftAddEntryReq, t *int, s *int) int {
-			if stateKind(*s) != state_LEADER {
-				return caseStepDown(r.Term, *t, *s)
-			}
-			if r.Term > *t {
-				return state_STEP_DOWN
-			}
-			return stateKind(*s)
-		}).Into(nextState)
+		func(r *RaftAddEntryReq, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
+		Into(nextState)
 	d.Join(rappendr, curTerm, curState,
 		func(r *RaftAddEntryRes, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
 		Into(nextState)
