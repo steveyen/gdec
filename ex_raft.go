@@ -398,6 +398,16 @@ func RaftInit(d *D, prefix string) *D {
 			}
 		}).IntoAsync(rappend)
 
+	// Leader operation.
+
+	d.Join(rappendr, currTerm, currState,
+		func(rappendr *RaftAppendEntryResponse, currTerm *int, currState *int) int {
+			if rappendr.Term > *currTerm {
+				return state_STEP_DOWN
+			}
+			return stateKind(*currState)
+		}).Into(nextState)
+
 	// Incorporate next term and next state.
 
 	d.Join(nextTerm).
