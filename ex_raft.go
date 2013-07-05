@@ -181,13 +181,8 @@ func RaftInit(d *D, prefix string) *D {
 		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftVoteReq {
 			if stateKind(*s) == state_CANDIDATE &&
 				!MultiTallyHasVoteFrom(d, prefix+"tallyLeader/", termToKey(*t), *a) {
-				return &RaftVoteReq{
-					To:           *a,
-					From:         d.Addr,
-					Term:         *t,
-					LastLogTerm:  l.LastTerm,
-					LastLogIndex: l.LastIndex,
-				}
+				return &RaftVoteReq{To: *a, From: d.Addr, Term: *t,
+					LastLogTerm: l.LastTerm, LastLogIndex: l.LastIndex}
 			}
 			return nil
 		}).IntoAsync(rvote)
@@ -260,18 +255,12 @@ func RaftInit(d *D, prefix string) *D {
 	// Send heartbeats.
 	d.Join(heartbeat, member, curTerm, curState, logState,
 		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftAddEntryReq {
-			if stateKind(*s) == state_LEADER {
-				return &RaftAddEntryReq{
-					To:           *a,
-					From:         d.Addr,
-					Term:         *t,
-					PrevLogTerm:  l.LastTerm,
-					PrevLogIndex: l.LastIndex,
-					Entry:        "",
-					CommitIndex:  l.LastCommitIndex,
-				}
+			if stateKind(*s) != state_LEADER {
+				return nil
 			}
-			return nil
+			return &RaftAddEntryReq{To: *a, From: d.Addr, Term: *t,
+				PrevLogTerm: l.LastTerm, PrevLogIndex: l.LastIndex,
+				Entry: "", CommitIndex: l.LastCommitIndex}
 		}).IntoAsync(radd)
 
 	// Handle add entry requests.
@@ -292,25 +281,24 @@ func RaftInit(d *D, prefix string) *D {
 				Ok: false, Index: r.PrevLogIndex}
 		}).IntoAsync(raddr)
 
-	d.Join(radd, curState, logEntry,
-		func(r *RaftAddEntryReq, curState *int, m *LMapEntry) {
-			// Send ok response only if log terms match.  And,
-			// update entries if terms match, replacing/clearing later entries.
-			if r.Entry == "" || stateKind(*curState) == state_LEADER ||
-				keyToIndex(m.Key) != r.PrevLogIndex {
-				return
-			}
-			e := maxRaftEntry(m.Val.(*LSet))
-			if e == nil {
-				return
-			}
-			d.Add(raddr, &RaftAddEntryRes{To: r.From, From: r.To, Term: r.Term,
-				Ok: r.PrevLogTerm == e.Term, Index: r.PrevLogIndex + 1})
-			if r.PrevLogTerm == e.Term {
-				d.Add(logAdd, &RaftEntry{
-					Term: r.Term, Index: r.PrevLogIndex + 1, Entry: r.Entry})
-			}
-		})
+	d.Join(radd, curState, logEntry, func(r *RaftAddEntryReq, s *int, m *LMapEntry) {
+		// Send ok response only if log terms match.  And,
+		// update entries if terms match, replacing/clearing later entries.
+		if r.Entry == "" || stateKind(*s) == state_LEADER ||
+			keyToIndex(m.Key) != r.PrevLogIndex {
+			return
+		}
+		e := maxRaftEntry(m.Val.(*LSet))
+		if e == nil {
+			return
+		}
+		d.Add(raddr, &RaftAddEntryRes{To: r.From, From: r.To, Term: r.Term,
+			Ok: r.PrevLogTerm == e.Term, Index: r.PrevLogIndex + 1})
+		if r.PrevLogTerm == e.Term {
+			d.Add(logAdd, &RaftEntry{
+				Term: r.Term, Index: r.PrevLogIndex + 1, Entry: r.Entry})
+		}
+	})
 
 	d.Join(radd, func(r *RaftAddEntryReq) int { return r.CommitIndex }).
 		Into(logCommit) // TODO: commit entries before this point.
@@ -318,26 +306,20 @@ func RaftInit(d *D, prefix string) *D {
 	// Update followers.
 
 	d.Join(heartbeat, curTerm, curState, logEntry, logState, nextIndex,
-		func(h *bool, curTerm *int, curState *int,
-			logEntry *LMapEntry, logState *RaftLogState,
-			nextIndex *LMapEntry) *RaftAddEntryReq {
-			if !*h || stateKind(*curState) != state_LEADER {
+		func(h *bool, t *int, s *int,
+			le *LMapEntry, ls *RaftLogState,
+			n *LMapEntry) *RaftAddEntryReq {
+			if !*h || stateKind(*s) != state_LEADER {
 				return nil
 			}
-			e := maxRaftEntry(logEntry.Val.(*LSet))
-			if e == nil || e.Index != nextIndex.Val.(*LMax).Int()-1 {
+			e := maxRaftEntry(le.Val.(*LSet))
+			if e == nil || e.Index != n.Val.(*LMax).Int()-1 {
 				return nil
 			}
 			// TODO: Feels like we don't get all the logs to the follower.
-			return &RaftAddEntryReq{
-				To:           nextIndex.Key,
-				From:         d.Addr,
-				Term:         *curTerm,
-				PrevLogTerm:  e.Term,
-				PrevLogIndex: keyToIndex(logEntry.Key),
-				Entry:        e.Entry,
-				CommitIndex:  logState.LastCommitIndex,
-			}
+			return &RaftAddEntryReq{To: n.Key, From: d.Addr, Term: *t,
+				PrevLogTerm: e.Term, PrevLogIndex: keyToIndex(le.Key),
+				Entry: e.Entry, CommitIndex: ls.LastCommitIndex}
 		}).IntoAsync(radd)
 
 	return d
@@ -347,13 +329,8 @@ func init() {
 	RaftInit(NewD(""), "")
 }
 
-func termToKey(term int) string {
-	return fmt.Sprintf("%d", term)
-}
-
-func indexToKey(index int) string {
-	return fmt.Sprintf("%d", index)
-}
+func termToKey(term int) string   { return fmt.Sprintf("%d", term) }
+func indexToKey(index int) string { return fmt.Sprintf("%d", index) }
 
 func keyToIndex(key string) int {
 	index, err := strconv.Atoi(key)
