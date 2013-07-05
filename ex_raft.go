@@ -95,10 +95,10 @@ func RaftInit(d *D, prefix string) *D {
 	votedFor := d.DeclareLSet(prefix+"raftVotedFor", RaftVote{})
 	votedForInCurrTerm := d.Scratch(d.DeclareLSet(prefix+"raftVotedForInCurrTerm", "addrString"))
 
-	MultiTallyInit(d, prefix+"tally/")
-	tallyVote := d.Relations[prefix+"tally/MultiTallyVote"].(*LSet)
-	tallyNeed := d.Relations[prefix+"tally/MultiTallyNeed"].(*LMax)
-	tallyDone := d.Relations[prefix+"tally/MultiTallyDone"].(*LMap)
+	MultiTallyInit(d, prefix+"tallyLeader/")
+	tallyLeaderVote := d.Relations[prefix+"tallyLeader/MultiTallyVote"].(*LSet)
+	tallyLeaderNeed := d.Relations[prefix+"tallyLeader/MultiTallyNeed"].(*LMax)
+	tallyLeaderDone := d.Relations[prefix+"tallyLeader/MultiTallyDone"].(*LMap)
 
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
@@ -122,7 +122,7 @@ func RaftInit(d *D, prefix string) *D {
 	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteRequest{}))
 	bestCandidate := d.Scratch(d.DeclareLMaxString(prefix + "raftBestCandidate"))
 
-	d.Join(func() int { return member.Size() / 2 }).Into(tallyNeed)
+	d.Join(func() int { return member.Size() / 2 }).Into(tallyLeaderNeed)
 
 	// Initialize our scratch next term/state.
 
@@ -164,7 +164,7 @@ func RaftInit(d *D, prefix string) *D {
 		if *alarm && stateKind(*s) != state_LEADER {
 			d.Add(nextTerm, *t+1)
 			d.Add(nextState, state_CANDIDATE)
-			d.Add(tallyVote, &MultiTallyVote{termToKey(*t + 1), d.Addr})
+			d.Add(tallyLeaderVote, &MultiTallyVote{termToKey(*t + 1), d.Addr})
 			// TODO: d.Add(resetAlarm, true)
 			// TODO: Remove uncommitted logs.
 			return
@@ -176,7 +176,7 @@ func RaftInit(d *D, prefix string) *D {
 	d.Join(heartbeat, member, currTerm, currState, logState,
 		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftVoteRequest {
 			if stateKind(*s) == state_CANDIDATE &&
-				!MultiTallyHasVoteFrom(d, prefix+"tally/", termToKey(*t), *a) {
+				!MultiTallyHasVoteFrom(d, prefix+"tallyLeader/", termToKey(*t), *a) {
 				return &RaftVoteRequest{
 					To:           *a,
 					From:         d.Addr,
@@ -210,13 +210,13 @@ func RaftInit(d *D, prefix string) *D {
 				return &MultiTallyVote{termToKey(r.Term), r.From}
 			}
 			return nil
-		}).Into(tallyVote)
+		}).Into(tallyLeaderVote)
 
 	d.Join(currTerm, currState,
 		func(currTerm *int, currState *int) int {
 			// Become leader if we won the race.
 			if stateKind(*currState) == state_CANDIDATE {
-				won := tallyDone.At(termToKey(*currTerm)).(*LBool)
+				won := tallyLeaderDone.At(termToKey(*currTerm)).(*LBool)
 				if won != nil && won.Bool() {
 					return state_LEADER
 				}
