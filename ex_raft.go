@@ -315,7 +315,7 @@ func RaftInit(d *D, prefix string) *D {
 				keyToIndex(m.Key) != radd.PrevLogIndex {
 				return nil
 			}
-			e := maxEntry(m.Val.(*LSet))
+			e := maxRaftEntry(m.Val.(*LSet))
 			if e == nil {
 				return nil
 			}
@@ -335,7 +335,7 @@ func RaftInit(d *D, prefix string) *D {
 				keyToIndex(m.Key) != r.PrevLogIndex {
 				return nil
 			}
-			e := maxEntry(m.Val.(*LSet))
+			e := maxRaftEntry(m.Val.(*LSet))
 			if e == nil || e.Term != r.PrevLogTerm {
 				return nil
 			}
@@ -354,7 +354,7 @@ func RaftInit(d *D, prefix string) *D {
 			if !*h || stateKind(*curState) != state_LEADER {
 				return nil
 			}
-			e := maxEntry(logEntry.Val.(*LSet))
+			e := maxRaftEntry(logEntry.Val.(*LSet))
 			if e == nil || e.Index != nextIndex.Val.(*LMax).Int()-1 {
 				return nil
 			}
@@ -400,7 +400,7 @@ func caseStepDown(term, curTerm, curState int) int {
 	return stateKind(curState)
 }
 
-func maxEntry(entries *LSet) *RaftEntry {
+func maxRaftEntry(entries *LSet) *RaftEntry {
 	var max *RaftEntry
 	for x := range entries.Scan() {
 		e := x.(*RaftEntry)
