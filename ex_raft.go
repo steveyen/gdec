@@ -2,6 +2,7 @@ package gdec
 
 import (
 	"fmt"
+	"strconv"
 )
 
 // Invoked by candidates to gather votes.
@@ -110,7 +111,7 @@ func RaftInit(d *D, prefix string) *D {
 
 	heartbeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartbeat")) // TODO: periodic.
 
-	// Key: "term", val: LMap[key: "index", val: LSet[RaftLogEntry]].
+	// Key: "index", val: LSet[RaftLogEntry].
 	logEntry := d.DeclareLMap(prefix + "raftLogEntry")
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
 
@@ -327,20 +328,21 @@ func RaftInit(d *D, prefix string) *D {
 
 	d.Join(rappend, currState, logEntry,
 		func(rappend *RaftAppendEntryRequest, currState *int,
-			tm *LMapEntry) *RaftAppendEntryResponse {
+			m *LMapEntry) *RaftAppendEntryResponse {
 			// Success response only if log terms match.
-			if rappend.Entry == "" || stateKind(*currState) == state_LEADER {
+			if rappend.Entry == "" || stateKind(*currState) == state_LEADER ||
+				keyToIndex(m.Key) != rappend.PrevLogIndex || m.Val == nil {
 				return nil
 			}
-			if tm.Key != termToKey(rappend.PrevLogTerm) || tm.Val == nil ||
-				tm.Val.(*LMap).At(indexToKey(rappend.PrevLogIndex)) == nil {
-				return nil // TODO: Handle very first log entry.
+			e := maxLogEntry(m.Val.(*LSet))
+			if e == nil {
+				return nil
 			}
 			return &RaftAppendEntryResponse{
 				To:      rappend.From,
 				From:    rappend.To,
 				Term:    rappend.Term,
-				Success: true, // TODO: Handle returning non-nil, non-success.
+				Success: rappend.PrevLogTerm == e.Term,
 				Index:   rappend.PrevLogIndex + 1,
 			}
 		}).IntoAsync(rappendr)
@@ -371,4 +373,25 @@ func termToKey(term int) string {
 
 func indexToKey(index int) string {
 	return fmt.Sprintf("%d", index)
+}
+
+func keyToIndex(key string) int {
+	index, err := strconv.Atoi(key)
+	if err != nil {
+		return -1
+	}
+	return index
+}
+
+func maxLogEntry(entries *LSet) *RaftLogEntry {
+	var max *RaftLogEntry
+	for x := range entries.Scan() {
+		e := x.(*RaftLogEntry)
+		if max == nil ||
+			(e.Term > max.Term) ||
+			(e.Term == max.Term && e.Entry > max.Entry) {
+			max = e
+		}
+	}
+	return max
 }
