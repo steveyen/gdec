@@ -92,14 +92,6 @@ func RaftInit(d *D, prefix string) *D {
 
 	member := d.DeclareLSet(prefix+"raftMember", "addrString")
 
-	votedFor := d.DeclareLSet(prefix+"raftVotedFor", RaftVote{})
-	votedForInCurrTerm := d.Scratch(d.DeclareLSet(prefix+"raftVotedForInCurrTerm", "addrString"))
-
-	MultiTallyInit(d, prefix+"tallyLeader/")
-	tallyLeaderVote := d.Relations[prefix+"tallyLeader/MultiTallyVote"].(*LSet)
-	tallyLeaderNeed := d.Relations[prefix+"tallyLeader/MultiTallyNeed"].(*LMax)
-	tallyLeaderDone := d.Relations[prefix+"tallyLeader/MultiTallyDone"].(*LMap)
-
 	currTerm := d.DeclareLMax(prefix + "raftCurrTerm")
 	currState := d.DeclareLMax(prefix + "raftCurrState")
 
@@ -108,8 +100,18 @@ func RaftInit(d *D, prefix string) *D {
 
 	alarm := d.Scratch(d.DeclareLBool(prefix + "raftAlarm"))           // TODO: periodic.
 	alarmReset := d.Scratch(d.DeclareLBool(prefix + "raftAlarmReset")) // TODO: periodic.
+	heartbeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartbeat"))   // TODO: periodic.
 
-	heartbeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartbeat")) // TODO: periodic.
+	MultiTallyInit(d, prefix+"tallyLeader/")
+	tallyLeaderVote := d.Relations[prefix+"tallyLeader/MultiTallyVote"].(*LSet)
+	tallyLeaderNeed := d.Relations[prefix+"tallyLeader/MultiTallyNeed"].(*LMax)
+	tallyLeaderDone := d.Relations[prefix+"tallyLeader/MultiTallyDone"].(*LMap)
+
+	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteRequest{}))
+	bestCandidate := d.Scratch(d.DeclareLMaxString(prefix + "raftBestCandidate"))
+
+	votedFor := d.DeclareLSet(prefix+"raftVotedFor", RaftVote{})
+	votedForInCurrTerm := d.Scratch(d.DeclareLSet(prefix+"raftVotedForInCurrTerm", "addrString"))
 
 	// Key: "index", val: LSet[RaftEntry].
 	logEntry := d.DeclareLMap(prefix + "raftEntry")
@@ -119,8 +121,10 @@ func RaftInit(d *D, prefix string) *D {
 
 	nextIndex := d.DeclareLMap(prefix + "raftNextIndex") // Key: "addr", val: LMax.
 
-	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteRequest{}))
-	bestCandidate := d.Scratch(d.DeclareLMaxString(prefix + "raftBestCandidate"))
+	MultiTallyInit(d, prefix+"tallyCommit/")
+	tallyCommitVote := d.Relations[prefix+"tallyCommit/MultiTallyVote"].(*LSet)
+	tallyCommitNeed := d.Relations[prefix+"tallyCommit/MultiTallyNeed"].(*LMax)
+	tallyCommitDone := d.Relations[prefix+"tallyCommit/MultiTallyDone"].(*LMap)
 
 	d.Join(func() int { return member.Size() / 2 }).Into(tallyLeaderNeed)
 
