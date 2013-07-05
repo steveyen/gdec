@@ -123,13 +123,14 @@ func RaftInit(d *D, prefix string) *D {
 	nextIndex := d.DeclareLMap(prefix + "raftNextIndex") // Key: "addr", val: LMax.
 
 	MultiTallyInit(d, prefix+"tallyCommit/")
-	// tallyCommitVote := d.Relations[prefix+"tallyCommit/MultiTallyVote"].(*LSet)
-	// tallyCommitNeed := d.Relations[prefix+"tallyCommit/MultiTallyNeed"].(*LMax)
-	// tallyCommitDone := d.Relations[prefix+"tallyCommit/MultiTallyDone"].(*LMap)
+	tallyCommitVote := d.Relations[prefix+"tallyCommit/MultiTallyVote"].(*LSet)
+	tallyCommitNeed := d.Relations[prefix+"tallyCommit/MultiTallyNeed"].(*LMax)
+	tallyCommitDone := d.Relations[prefix+"tallyCommit/MultiTallyDone"].(*LMap)
 
 	// ------------------------------------------------------------------------
 
 	d.Join(func() int { return member.Size() / 2 }).Into(tallyLeaderNeed)
+	d.Join(func() int { return member.Size() / 2 }).Into(tallyCommitNeed)
 
 	// Initialize our scratch next term/state.
 	d.Join(curTerm).Into(nextTerm)
@@ -302,7 +303,7 @@ func RaftInit(d *D, prefix string) *D {
 	})
 
 	d.Join(radd, func(r *RaftAddEntryReq) int { return r.CommitIndex }).
-		Into(logCommit) // TODO: commit entries before this point.
+		Into(logCommit) // TODO: commit entries before (or at?) this point?
 
 	// Update followers.
 
@@ -322,6 +323,26 @@ func RaftInit(d *D, prefix string) *D {
 				PrevLogTerm: e.Term, PrevLogIndex: keyToIndex(le.Key),
 				Entry: e.Entry, CommitIndex: ls.LastCommitIndex}
 		}).IntoAsync(radd)
+
+	d.Join(raddr, func(r *RaftAddEntryRes) *MultiTallyVote {
+		if r.Ok {
+			return &MultiTallyVote{indexToKey(r.Index), r.From}
+		}
+		return nil
+	}).Into(tallyCommitVote)
+
+	d.Join(tallyCommitDone, func(m *LMapEntry) int {
+		if m.Val.(*LBool).Bool() {
+			return keyToIndex(m.Key)
+		}
+		return 0
+	}).Into(logCommit) // TODO: commit entries before (or at?) this point?
+
+	// TODO: update nextIndex <+- (raddr * nextIndex) {|a,n|
+	//    a.success? [a.from, i.index + 1] : [a.from, i.index - 1]}
+
+	// TODO: send committed logs into the state machine to execute
+	//    machine.execute <= logger.commited_logs
 
 	return d
 }
