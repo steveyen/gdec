@@ -115,6 +115,7 @@ func RaftInit(d *D, prefix string) *D {
 	logEntry := d.DeclareLMap(prefix + "raftEntry")
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
 	logAdd := d.DeclareLSet(prefix+"raftLogAdd", RaftEntry{})        // TODO: sub-module.
+	logCommit := d.DeclareLMax(prefix+"raftLogCommit")               // TODO: sub-module.
 
 	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteRequest{}))
 	bestCandidate := d.Scratch(d.DeclareLMaxString(prefix + "raftBestCandidate"))
@@ -366,6 +367,9 @@ func RaftInit(d *D, prefix string) *D {
 				Entry: rappend.Entry,
 			}
 		}).Into(logAdd)
+
+	d.Join(rappend, func(r *RaftAppendEntryRequest) int { return r.CommitIndex }).
+		Into(logCommit) // TODO: commit entries before this point.
 
 	// Incorporate next term and next state.
 
