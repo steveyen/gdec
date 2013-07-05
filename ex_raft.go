@@ -87,8 +87,8 @@ func RaftInit(d *D, prefix string) *D {
 	rvote := d.Relations[prefix+"RaftVoteReq"]
 	rvoter := d.Relations[prefix+"RaftVoteRes"]
 
-	rappend := d.Relations[prefix+"RaftAddEntryReq"]
-	rappendr := d.Relations[prefix+"RaftAddEntryRes"]
+	radd := d.Relations[prefix+"RaftAddEntryReq"]
+	raddr := d.Relations[prefix+"RaftAddEntryRes"]
 
 	member := d.DeclareLSet(prefix+"raftMember", "addrString")
 
@@ -144,8 +144,8 @@ func RaftInit(d *D, prefix string) *D {
 	// Any incoming higher terms take precendence.
 	d.Join(rvote, func(r *RaftVoteReq) int { return r.Term }).Into(nextTerm)
 	d.Join(rvoter, func(r *RaftVoteRes) int { return r.Term }).Into(nextTerm)
-	d.Join(rappend, func(r *RaftAddEntryReq) int { return r.Term }).Into(nextTerm)
-	d.Join(rappendr, func(r *RaftAddEntryRes) int { return r.Term }).Into(nextTerm)
+	d.Join(radd, func(r *RaftAddEntryReq) int { return r.Term }).Into(nextTerm)
+	d.Join(raddr, func(r *RaftAddEntryRes) int { return r.Term }).Into(nextTerm)
 
 	// Any incoming higher terms can make us step down.
 	d.Join(rvote, curTerm, curState,
@@ -154,10 +154,10 @@ func RaftInit(d *D, prefix string) *D {
 	d.Join(rvoter, curTerm, curState,
 		func(r *RaftVoteRes, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
 		Into(nextState)
-	d.Join(rappend, curTerm, curState,
+	d.Join(radd, curTerm, curState,
 		func(r *RaftAddEntryReq, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
 		Into(nextState)
-	d.Join(rappendr, curTerm, curState,
+	d.Join(raddr, curTerm, curState,
 		func(r *RaftAddEntryRes, t *int, s *int) int { return caseStepDown(r.Term, *t, *s) }).
 		Into(nextState)
 
@@ -223,9 +223,9 @@ func RaftInit(d *D, prefix string) *D {
 		}).Into(nextState)
 
 	// Cast votes.
-
 	d.Join(curTerm, votedFor,
 		func(curTerm *int, votedFor *RaftVote) *string {
+			// Remember who we voted for in the current term.
 			if *curTerm == votedFor.Term {
 				return &votedFor.Candidate
 			}
@@ -249,17 +249,12 @@ func RaftInit(d *D, prefix string) *D {
 		Into(bestCandidate) // Not the greatest best function, but it's stable.
 
 	d.Join(rvote, bestCandidate, curTerm,
-		func(rvote *RaftVoteReq, bestCandidate *string, t *int) *RaftVoteRes {
+		func(r *RaftVoteReq, b *string, t *int) *RaftVoteRes {
 			// Grant vote if we hadn't voted yet or if we already voted for the candidate.
 			granted :=
-				(votedForInCurTerm.(*LSet).Size() == 0 && rvote.From == *bestCandidate) ||
-					(votedForInCurTerm.(*LSet).Contains(rvote.From))
-			return &RaftVoteRes{
-				To:      rvote.From,
-				From:    rvote.To,
-				Term:    *t,
-				Granted: granted,
-			}
+				(votedForInCurTerm.(*LSet).Size() == 0 && r.From == *b) ||
+					(votedForInCurTerm.(*LSet).Contains(r.From))
+			return &RaftVoteRes{To: r.From, From: r.To, Term: *t, Granted: granted}
 		}).IntoAsync(rvoter) // TODO: Reset timer if we grant a vote to a candidate.
 
 	d.Join(bestCandidate, curTerm,
@@ -272,7 +267,6 @@ func RaftInit(d *D, prefix string) *D {
 		}).IntoAsync(votedFor)
 
 	// Send heartbeats.
-
 	d.Join(heartbeat, member, curTerm, curState, logState,
 		func(h *bool, a *string, t *int, s *int, l *RaftLogState) *RaftAddEntryReq {
 			if stateKind(*s) == state_LEADER {
@@ -287,39 +281,38 @@ func RaftInit(d *D, prefix string) *D {
 				}
 			}
 			return nil
-		}).IntoAsync(rappend)
+		}).IntoAsync(radd)
 
-	// Handle append entry requests.
-
-	d.Join(rappend, curTerm,
-		func(rappend *RaftAddEntryReq, curTerm *int) bool {
+	// Handle add entry requests.
+	d.Join(radd, curTerm,
+		func(radd *RaftAddEntryReq, curTerm *int) bool {
 			// Reset alarm if term is current or our term is stale.
 			// TODO: Random alarm timeout.
-			return rappend.Term >= *curTerm
+			return radd.Term >= *curTerm
 		}).Into(alarmReset)
 
-	d.Join(rappend, curTerm, logState,
-		func(rappend *RaftAddEntryReq, curTerm *int,
+	d.Join(radd, curTerm, logState,
+		func(radd *RaftAddEntryReq, curTerm *int,
 			logState *RaftLogState) *RaftAddEntryRes {
 			// Fail response if previous entry doesn't exist in our log.
-			if rappend.PrevLogIndex > logState.LastIndex {
+			if radd.PrevLogIndex > logState.LastIndex {
 				return &RaftAddEntryRes{
-					To:      rappend.From,
-					From:    rappend.To,
+					To:      radd.From,
+					From:    radd.To,
 					Term:    *curTerm,
 					Success: false,
-					Index:   rappend.PrevLogIndex,
+					Index:   radd.PrevLogIndex,
 				}
 			}
 			return nil
-		}).IntoAsync(rappendr)
+		}).IntoAsync(raddr)
 
-	d.Join(rappend, curState, logEntry,
-		func(rappend *RaftAddEntryReq, curState *int,
+	d.Join(radd, curState, logEntry,
+		func(radd *RaftAddEntryReq, curState *int,
 			m *LMapEntry) *RaftAddEntryRes {
 			// Success response only if log terms match.
-			if rappend.Entry == "" || stateKind(*curState) == state_LEADER ||
-				keyToIndex(m.Key) != rappend.PrevLogIndex {
+			if radd.Entry == "" || stateKind(*curState) == state_LEADER ||
+				keyToIndex(m.Key) != radd.PrevLogIndex {
 				return nil
 			}
 			e := maxEntry(m.Val.(*LSet))
@@ -327,43 +320,38 @@ func RaftInit(d *D, prefix string) *D {
 				return nil
 			}
 			return &RaftAddEntryRes{
-				To:      rappend.From,
-				From:    rappend.To,
-				Term:    rappend.Term,
-				Success: rappend.PrevLogTerm == e.Term,
-				Index:   rappend.PrevLogIndex + 1,
+				To:      radd.From,
+				From:    radd.To,
+				Term:    radd.Term,
+				Success: radd.PrevLogTerm == e.Term,
+				Index:   radd.PrevLogIndex + 1,
 			}
-		}).IntoAsync(rappendr)
+		}).IntoAsync(raddr)
 
-	d.Join(rappend, curState, logEntry,
-		func(rappend *RaftAddEntryReq, curState *int,
-			m *LMapEntry) *RaftEntry {
+	d.Join(radd, curState, logEntry,
+		func(r *RaftAddEntryReq, s *int, m *LMapEntry) *RaftEntry {
 			// Update entries if terms match, replacing/clearing later entries.
-			if rappend.Entry == "" || stateKind(*curState) == state_LEADER ||
-				keyToIndex(m.Key) != rappend.PrevLogIndex {
+			if r.Entry == "" || stateKind(*s) == state_LEADER ||
+				keyToIndex(m.Key) != r.PrevLogIndex {
 				return nil
 			}
 			e := maxEntry(m.Val.(*LSet))
-			if e == nil || e.Term != rappend.PrevLogTerm {
+			if e == nil || e.Term != r.PrevLogTerm {
 				return nil
 			}
-			return &RaftEntry{
-				Term:  rappend.Term,
-				Index: rappend.PrevLogIndex + 1,
-				Entry: rappend.Entry,
-			}
+			return &RaftEntry{Term: r.Term, Index: r.PrevLogIndex + 1, Entry: r.Entry}
 		}).Into(logAdd)
 
-	d.Join(rappend, func(r *RaftAddEntryReq) int { return r.CommitIndex }).
+	d.Join(radd, func(r *RaftAddEntryReq) int { return r.CommitIndex }).
 		Into(logCommit) // TODO: commit entries before this point.
 
 	// Update followers.
 
 	d.Join(heartbeat, curTerm, curState, logEntry, logState, nextIndex,
-		func(hearbeat *bool, curTerm *int, curState *int,
+		func(h *bool, curTerm *int, curState *int,
 			logEntry *LMapEntry, logState *RaftLogState,
 			nextIndex *LMapEntry) *RaftAddEntryReq {
-			if !*hearbeat || stateKind(*curState) != state_LEADER {
+			if !*h || stateKind(*curState) != state_LEADER {
 				return nil
 			}
 			e := maxEntry(logEntry.Val.(*LSet))
@@ -380,7 +368,7 @@ func RaftInit(d *D, prefix string) *D {
 				Entry:        e.Entry,
 				CommitIndex:  logState.LastCommitIndex,
 			}
-		}).IntoAsync(rappend)
+		}).IntoAsync(radd)
 
 	return d
 }
