@@ -163,14 +163,9 @@ func RaftInit(d *D, prefix string) *D {
 
 	// Incoming votes requests.
 	d.Join(rvote, curTerm,
-		func(rvote *RaftVoteReq, curTerm *int) *RaftVoteRes {
-			if rvote.Term < *curTerm {
-				return &RaftVoteRes{
-					To:      rvote.From,
-					From:    rvote.To,
-					Term:    *curTerm,
-					Granted: false,
-				}
+		func(r *RaftVoteReq, t *int) *RaftVoteRes {
+			if r.Term < *t {
+				return &RaftVoteRes{To: r.From, From: r.To, Term: *t, Granted: false}
 			}
 			return nil // TODO.
 		}).IntoAsync(rvoter)
