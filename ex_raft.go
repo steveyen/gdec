@@ -115,7 +115,9 @@ func RaftInit(d *D, prefix string) *D {
 	logEntry := d.DeclareLMap(prefix + "raftEntry")
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
 	logAdd := d.DeclareLSet(prefix+"raftLogAdd", RaftEntry{})        // TODO: sub-module.
-	logCommit := d.DeclareLMax(prefix+"raftLogCommit")               // TODO: sub-module.
+	logCommit := d.DeclareLMax(prefix + "raftLogCommit")             // TODO: sub-module.
+
+	nextIndex := d.DeclareLMap(prefix + "raftNextIndex") // Key: "addr", val: LMax.
 
 	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteRequest{}))
 	bestCandidate := d.Scratch(d.DeclareLMaxString(prefix + "raftBestCandidate"))
@@ -370,6 +372,31 @@ func RaftInit(d *D, prefix string) *D {
 
 	d.Join(rappend, func(r *RaftAppendEntryRequest) int { return r.CommitIndex }).
 		Into(logCommit) // TODO: commit entries before this point.
+
+	// Update followers.
+
+	d.Join(heartbeat, currTerm, currState, logEntry, logState, nextIndex,
+		func(hearbeat *bool, currTerm *int, currState *int,
+			logEntry *LMapEntry, logState *RaftLogState,
+			nextIndex *LMapEntry) *RaftAppendEntryRequest {
+			if !*hearbeat || stateKind(*currState) != state_LEADER {
+				return nil
+			}
+			e := maxEntry(logEntry.Val.(*LSet))
+			if e == nil || e.Index != nextIndex.Val.(*LMax).Int()-1 {
+				return nil
+			}
+			// TODO: Feels like we don't get all the logs to the follower.
+			return &RaftAppendEntryRequest{
+				To:           nextIndex.Key,
+				From:         d.Addr,
+				Term:         *currTerm,
+				PrevLogTerm:  e.Term,
+				PrevLogIndex: keyToIndex(logEntry.Key),
+				Entry:        e.Entry,
+				CommitIndex:  logState.LastCommitIndex,
+			}
+		}).IntoAsync(rappend)
 
 	// Incorporate next term and next state.
 
