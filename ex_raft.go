@@ -45,7 +45,7 @@ type RaftVote struct {
 	Candidate string
 }
 
-type RaftLogEntry struct {
+type RaftEntry struct {
 	Term  int    // Term when entry was received by leader.
 	Index int    // Position of entry in the log.
 	Entry string // Command for state machine.
@@ -111,9 +111,10 @@ func RaftInit(d *D, prefix string) *D {
 
 	heartbeat := d.Scratch(d.DeclareLBool(prefix + "raftHeartbeat")) // TODO: periodic.
 
-	// Key: "index", val: LSet[RaftLogEntry].
-	logEntry := d.DeclareLMap(prefix + "raftLogEntry")
+	// Key: "index", val: LSet[RaftEntry].
+	logEntry := d.DeclareLMap(prefix + "raftEntry")
 	logState := d.DeclareLSet(prefix+"raftLogState", RaftLogState{}) // TODO: sub-module.
+	logAdd := d.DeclareLSet(prefix+"raftLogAdd", RaftEntry{})        // TODO: sub-module.
 
 	goodCandidate := d.Scratch(d.DeclareLSet(prefix+"raftGoodCandidate", RaftVoteRequest{}))
 	bestCandidate := d.Scratch(d.DeclareLMaxString(prefix + "raftBestCandidate"))
@@ -331,10 +332,10 @@ func RaftInit(d *D, prefix string) *D {
 			m *LMapEntry) *RaftAppendEntryResponse {
 			// Success response only if log terms match.
 			if rappend.Entry == "" || stateKind(*currState) == state_LEADER ||
-				keyToIndex(m.Key) != rappend.PrevLogIndex || m.Val == nil {
+				keyToIndex(m.Key) != rappend.PrevLogIndex {
 				return nil
 			}
-			e := maxLogEntry(m.Val.(*LSet))
+			e := maxEntry(m.Val.(*LSet))
 			if e == nil {
 				return nil
 			}
@@ -346,6 +347,25 @@ func RaftInit(d *D, prefix string) *D {
 				Index:   rappend.PrevLogIndex + 1,
 			}
 		}).IntoAsync(rappendr)
+
+	d.Join(rappend, currState, logEntry,
+		func(rappend *RaftAppendEntryRequest, currState *int,
+			m *LMapEntry) *RaftEntry {
+			// Update entries if terms match, replacing/clearing later entries.
+			if rappend.Entry == "" || stateKind(*currState) == state_LEADER ||
+				keyToIndex(m.Key) != rappend.PrevLogIndex {
+				return nil
+			}
+			e := maxEntry(m.Val.(*LSet))
+			if e == nil || e.Term != rappend.PrevLogTerm {
+				return nil
+			}
+			return &RaftEntry{
+				Term:  rappend.Term,
+				Index: rappend.PrevLogIndex + 1,
+				Entry: rappend.Entry,
+			}
+		}).Into(logAdd)
 
 	// Incorporate next term and next state.
 
@@ -383,10 +403,10 @@ func keyToIndex(key string) int {
 	return index
 }
 
-func maxLogEntry(entries *LSet) *RaftLogEntry {
-	var max *RaftLogEntry
+func maxEntry(entries *LSet) *RaftEntry {
+	var max *RaftEntry
 	for x := range entries.Scan() {
-		e := x.(*RaftLogEntry)
+		e := x.(*RaftEntry)
 		if max == nil ||
 			(e.Term > max.Term) ||
 			(e.Term == max.Term && e.Entry > max.Entry) {
