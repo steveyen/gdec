@@ -33,11 +33,11 @@ type RaftAddEntryReq struct {
 }
 
 type RaftAddEntryRes struct { // Response.
-	To      string
-	From    string
-	Term    int  // Current term, for leader to update itself.
-	Success bool // True if had entry matching PrevLogIndex/Term.
-	Index   int
+	To    string
+	From  string
+	Term  int  // Current term, for leader to update itself.
+	Ok    bool // True if had entry matching PrevLogIndex/Term.
+	Index int
 }
 
 type RaftVote struct {
@@ -235,11 +235,9 @@ func RaftInit(d *D, prefix string) *D {
 	d.Join(rvote, logState,
 		func(rvote *RaftVoteReq, logState *RaftLogState) *RaftVoteReq {
 			// Good candidate only if candidate's log is at or beyond our log.
-			if rvote.LastLogTerm > logState.LastTerm {
-				return rvote
-			}
-			if rvote.LastLogTerm == logState.LastTerm &&
-				rvote.LastLogIndex >= logState.LastIndex {
+			if rvote.LastLogTerm > logState.LastTerm ||
+				(rvote.LastLogTerm == logState.LastTerm &&
+					rvote.LastLogIndex >= logState.LastIndex) {
 				return rvote
 			}
 			return nil
@@ -292,45 +290,37 @@ func RaftInit(d *D, prefix string) *D {
 		}).Into(alarmReset)
 
 	d.Join(radd, curTerm, logState,
-		func(radd *RaftAddEntryReq, curTerm *int,
-			logState *RaftLogState) *RaftAddEntryRes {
+		func(r *RaftAddEntryReq, t *int, ls *RaftLogState) *RaftAddEntryRes {
 			// Fail response if previous entry doesn't exist in our log.
-			if radd.PrevLogIndex > logState.LastIndex {
-				return &RaftAddEntryRes{
-					To:      radd.From,
-					From:    radd.To,
-					Term:    *curTerm,
-					Success: false,
-					Index:   radd.PrevLogIndex,
-				}
+			if r.PrevLogIndex <= ls.LastIndex {
+				return nil
 			}
-			return nil
+			return &RaftAddEntryRes{To: r.From, From: r.To, Term: *t,
+				Ok: false, Index: r.PrevLogIndex}
 		}).IntoAsync(raddr)
 
 	d.Join(radd, curState, logEntry,
-		func(radd *RaftAddEntryReq, curState *int,
-			m *LMapEntry) *RaftAddEntryRes {
-			// Success response only if log terms match.
-			if radd.Entry == "" || stateKind(*curState) == state_LEADER ||
-				keyToIndex(m.Key) != radd.PrevLogIndex {
-				return nil
+		func(r *RaftAddEntryReq, curState *int, m *LMapEntry) {
+			// Send ok response only if log terms match.  And,
+			// update entries if terms match, replacing/clearing later entries.
+			if r.Entry == "" || stateKind(*curState) == state_LEADER ||
+				keyToIndex(m.Key) != r.PrevLogIndex {
+				return
 			}
 			e := maxRaftEntry(m.Val.(*LSet))
 			if e == nil {
-				return nil
+				return
 			}
-			return &RaftAddEntryRes{
-				To:      radd.From,
-				From:    radd.To,
-				Term:    radd.Term,
-				Success: radd.PrevLogTerm == e.Term,
-				Index:   radd.PrevLogIndex + 1,
+			d.Add(raddr, &RaftAddEntryRes{To: r.From, From: r.To, Term: r.Term,
+				Ok: r.PrevLogTerm == e.Term, Index: r.PrevLogIndex + 1})
+			if r.PrevLogTerm == e.Term {
+				d.Add(logAdd, &RaftEntry{
+					Term: r.Term, Index: r.PrevLogIndex + 1, Entry: r.Entry})
 			}
-		}).IntoAsync(raddr)
+		})
 
 	d.Join(radd, curState, logEntry,
 		func(r *RaftAddEntryReq, s *int, m *LMapEntry) *RaftEntry {
-			// Update entries if terms match, replacing/clearing later entries.
 			if r.Entry == "" || stateKind(*s) == state_LEADER ||
 				keyToIndex(m.Key) != r.PrevLogIndex {
 				return nil
